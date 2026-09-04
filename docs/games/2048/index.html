@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>2048 — PlayHub</title>
-  <link rel="stylesheet" href="../../css/style.css" />
+  <link rel="stylesheet" href="../../css/style.css?v=AUDIO1" />
   <script src="https://unpkg.com/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body class="game-page">
@@ -12,6 +12,7 @@
     <a class="back" href="../../">← 로비</a>
     <div class="title">2048</div>
     <div class="hud">
+      <button type="button" class="mute-btn" data-playhub-mute aria-label="소리 끄기">🔊 소리킴</button>
       <div class="pill">점수 <span id="score">0</span></div>
       <div class="pill">최고 <span id="best">0</span></div>
     </div>
@@ -23,6 +24,7 @@
     </div>
     <p class="hint">키보드 화살표 또는 화면을 스와이프하세요. 같은 숫자를 합쳐 2048을 만드세요!</p>
   </main>
-  <script src="game.js?v=NEWGAME2"></script>
+  <script src="../../js/audio.js?v=AUDIO1"></script>
+  <script src="game.js?v=AUDIO1"></script>
 </body>
 </html>
