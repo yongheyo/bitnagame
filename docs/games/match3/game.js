@@ -50,7 +50,13 @@
         align: "center",
       }).setOrigin(0.5).setDepth(40).setVisible(false);
 
-      document.getElementById("btn-new").onclick = () => this.newGame();
+      document.getElementById("btn-new").onclick = () => {
+        if (window.PlayHubAudio) window.PlayHubAudio.unlock();
+        this.newGame();
+      };
+      this.input.on("pointerdown", () => {
+        if (window.PlayHubAudio) window.PlayHubAudio.unlock();
+      });
       this.newGame();
     }
 
@@ -364,6 +370,7 @@
       this.busy = true;
       this.armBusySafety(6000);
       this.score += matches.length * 10 + Math.max(0, matches.length - 3) * 5;
+      if (window.PlayHubAudio) window.PlayHubAudio.play("match");
       this.syncHud();
       let pending = matches.length;
       let advanced = false;
