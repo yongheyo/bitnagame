@@ -4,7 +4,12 @@
   const MOVE_MS = 110;
   const MERGE_POP_MS = 140;
   const SPAWN_MS = 130;
-  const BEST_KEY = "playhub-2048-best";
+  const BEST_KEY = "bitnagame-2048-best";
+  const LEGACY_BEST_KEY = "playhub-2048-best";
+  if (localStorage.getItem(BEST_KEY) == null) {
+    const legacyBest = localStorage.getItem(LEGACY_BEST_KEY);
+    if (legacyBest != null) localStorage.setItem(BEST_KEY, legacyBest);
+  }
   const DIR_MAP = {
     ArrowLeft: "left",
     ArrowRight: "right",
@@ -34,11 +39,11 @@
   let resetGen = 0;
 
   function sfx(name) {
-    if (window.PlayHubAudio) window.PlayHubAudio.play(name);
+    if (window.BitnaGameAudio) window.BitnaGameAudio.play(name);
   }
 
   function unlockAudio() {
-    if (window.PlayHubAudio) window.PlayHubAudio.unlock();
+    if (window.BitnaGameAudio) window.BitnaGameAudio.unlock();
   }
 
   function hideOverlay() {
@@ -546,7 +551,7 @@
     }
   }
 
-  window.__playhub2048Reset = () => {
+  window.__bitna2048Reset = () => {
     unlockAudio();
     if (scoreEl) scoreEl.textContent = "0";
     hideOverlay();
@@ -608,7 +613,7 @@
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        window.__playhub2048Reset();
+        window.__bitna2048Reset();
       });
     }
 
@@ -627,7 +632,7 @@
       overlayNew.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        window.__playhub2048Reset();
+        window.__bitna2048Reset();
       });
     }
   };
