@@ -262,6 +262,15 @@
         gameRef = null;
       }
       host.innerHTML = "";
+      // Clamp host to viewport so FIT never paints past the right edge at ~390px
+      const maxW = Math.min(W, host.parentElement ? host.parentElement.clientWidth : host.clientWidth || W);
+      const boxW = Math.max(260, Math.min(W, maxW || W, window.innerWidth - 24));
+      const boxH = Math.round((boxW / W) * H);
+      host.style.width = boxW + "px";
+      host.style.height = boxH + "px";
+      host.style.maxWidth = "100%";
+      host.style.margin = "0 auto";
+      host.style.overflow = "hidden";
       gameRef = new Phaser.Game({
         type: Phaser.AUTO,
         parent: host,
@@ -269,9 +278,15 @@
         height: H,
         backgroundColor: "#0b1020",
         physics: { default: "arcade", arcade: { debug: false } },
-        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+          width: W,
+          height: H,
+        },
         scene: [BrickGlowScene],
       });
+      if (gameRef.scale) gameRef.scale.refresh();
     };
     requestAnimationFrame(() => requestAnimationFrame(start));
   }
