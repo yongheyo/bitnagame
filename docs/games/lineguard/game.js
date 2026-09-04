@@ -79,8 +79,7 @@
     {
       gap: 1000,
       groups: [
-        { hp: 30, count: 6, dmg: 6, speed: 46, color: 0xff5d8f },
-        { hp: 80, count: 2, dmg: 12, speed: 28, color: 0xc44569, w: 30, h: 36 },
+        { hp: 30, count: 6, dmg: 6, speed: 46, color: 0xc44569, w: 30, h: 36 },
       ],
     },
     {
@@ -369,7 +368,6 @@
         if (this.elixir >= cost) {
           this.tryDeploy(front, true);
         } else {
-          // flash only occasionally while holding insufficient elixir
           if (!this._denyFlashAt || time > this._denyFlashAt) {
             flashCardInsufficient(front);
             this._denyFlashAt = time + 900;
@@ -395,10 +393,12 @@
         this.enemies.every((e) => !e.alive)
       ) {
         if (this.wave >= TOTAL_WAVES) {
+          this.rewardWaveElixir();
           this.endGame(true);
         } else {
           this.betweenWaves = true;
           this.waveClearDelay = 1.2;
+          this.rewardWaveElixir();
           this.statusText.setText("웨이브 " + this.wave + " 클리어!");
           sfx("win");
         }
@@ -572,6 +572,32 @@
         h.hpBar.destroy();
         h.hpBarBg.destroy();
       }
+    }
+
+    rewardWaveElixir() {
+      const before = this.elixir;
+      this.elixir = Math.min(ELIXIR_MAX, this.elixir + 1);
+      this.syncHud();
+      this.popElixirPlus();
+    }
+
+    popElixirPlus() {
+      if (!elixirEl) return;
+      let pop = document.getElementById("elixir-pop");
+      if (!pop) {
+        const hud = document.querySelector(".lg-hud");
+        if (!hud) return;
+        pop = document.createElement("span");
+        pop.id = "elixir-pop";
+        pop.className = "elixir-pop";
+        pop.setAttribute("aria-hidden", "true");
+        hud.appendChild(pop);
+      }
+      pop.textContent = "+1";
+      pop.classList.remove("show");
+      void pop.offsetWidth;
+      pop.classList.add("show");
+      window.setTimeout(() => pop.classList.remove("show"), 400);
     }
 
     endGame(won) {
