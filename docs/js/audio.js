@@ -1,0 +1,153 @@
+(() => {
+  const STORAGE_KEY = "playhub-muted";
+  const FREQ = { click: 880, move: 520, match: 660, win: 990 };
+
+  let muted = localStorage.getItem(STORAGE_KEY) === "1";
+  let ctx = null;
+  let unlocked = false;
+  const listeners = new Set();
+
+  function ensureCtx() {
+    if (ctx) return ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try {
+      ctx = new AC();
+    } catch (_) {
+      ctx = null;
+    }
+    return ctx;
+  }
+
+  function notify() {
+    listeners.forEach((fn) => {
+      try {
+        fn(muted);
+      } catch (_) {}
+    });
+    document.querySelectorAll("[data-playhub-mute]").forEach(syncButton);
+  }
+
+  function syncButton(btn) {
+    if (!btn) return;
+    const on = !muted;
+    btn.setAttribute("aria-pressed", on ? "false" : "true");
+    btn.setAttribute("aria-label", on ? "소리 끄기" : "소리 켜기");
+    btn.title = on ? "소리 끔" : "소리 킴";
+    btn.textContent = on ? "🔊 소리킴" : "🔇 소리끔";
+  }
+
+  function isMuted() {
+    return muted;
+  }
+
+  function setMuted(value) {
+    muted = !!value;
+    localStorage.setItem(STORAGE_KEY, muted ? "1" : "0");
+    if (muted && ctx && ctx.state === "running") {
+      try {
+        ctx.suspend();
+      } catch (_) {}
+    } else if (!muted && ctx && ctx.state === "suspended" && unlocked) {
+      try {
+        ctx.resume();
+      } catch (_) {}
+    }
+    notify();
+    return muted;
+  }
+
+  function toggleMute() {
+    return setMuted(!muted);
+  }
+
+  function unlock() {
+    const c = ensureCtx();
+    if (!c) {
+      unlocked = true;
+      return false;
+    }
+    if (c.state === "suspended") {
+      c.resume().catch(() => {});
+    }
+    unlocked = true;
+    return true;
+  }
+
+  function beep(freq, dur, type) {
+    const c = ensureCtx();
+    if (!c || muted || !unlocked) return;
+    try {
+      if (c.state === "suspended") c.resume().catch(() => {});
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type || "sine";
+      osc.frequency.value = freq;
+      gain.gain.value = 0.0001;
+      osc.connect(gain);
+      gain.connect(c.destination);
+      const now = c.currentTime;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.start(now);
+      osc.stop(now + dur + 0.02);
+    } catch (_) {}
+  }
+
+  function play(name) {
+    if (muted || !unlocked) return;
+    const freq = FREQ[name] || FREQ.click;
+    const dur = name === "win" ? 0.22 : name === "match" ? 0.12 : 0.07;
+    beep(freq, dur, name === "match" ? "triangle" : "sine");
+  }
+
+  function onMuteChange(fn) {
+    if (typeof fn === "function") listeners.add(fn);
+    return () => listeners.delete(fn);
+  }
+
+  function bindMuteButton(btn) {
+    if (!btn) return;
+    btn.setAttribute("data-playhub-mute", "1");
+    syncButton(btn);
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      unlock();
+      toggleMute();
+    });
+  }
+
+  function armUnlock() {
+    const once = () => {
+      unlock();
+      window.removeEventListener("pointerdown", once, true);
+      window.removeEventListener("keydown", once, true);
+      window.removeEventListener("touchstart", once, true);
+    };
+    window.addEventListener("pointerdown", once, true);
+    window.addEventListener("keydown", once, true);
+    window.addEventListener("touchstart", once, true);
+  }
+
+  function initUi() {
+    document.querySelectorAll("[data-playhub-mute]").forEach(bindMuteButton);
+  }
+
+  armUnlock();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initUi);
+  } else {
+    initUi();
+  }
+
+  window.PlayHubAudio = {
+    isMuted,
+    setMuted,
+    toggleMute,
+    unlock,
+    play,
+    onMuteChange,
+    bindMuteButton,
+  };
+})();
