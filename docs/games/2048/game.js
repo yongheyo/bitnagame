@@ -56,6 +56,7 @@
         .setVisible(false);
 
       this.input.keyboard.on("keydown", (e) => {
+        if (window.PlayHubAudio) window.PlayHubAudio.unlock();
         const map = {
           ArrowLeft: "left",
           ArrowRight: "right",
@@ -75,6 +76,7 @@
       let sx = 0;
       let sy = 0;
       this.input.on("pointerdown", (p) => {
+        if (window.PlayHubAudio) window.PlayHubAudio.unlock();
         sx = p.x;
         sy = p.y;
       });
@@ -125,7 +127,7 @@
 
     cellPos(r, c) {
       return {
-        x: this.originX + PAD + c * (this.cell + PAD) + this.cell / 2,
+        x: this.originX + PAD + c * (this.cell + PAD) + this.cell / 2;
         y: this.originY + PAD + r * (this.cell + PAD) + this.cell / 2,
       };
     }
@@ -246,6 +248,7 @@
       const changed = JSON.stringify(prev) !== JSON.stringify(next);
       if (!changed) return;
 
+      if (window.PlayHubAudio) window.PlayHubAudio.play("move");
       this.busy = true;
       this.score += scoreGain;
       this.syncHud();
