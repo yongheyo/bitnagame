@@ -2,9 +2,17 @@
 
 Phaser 3 기반 미니 게임 포털 — 계정 없이 바로 플레이.
 
-## 라이브 URL
+## 라이브 URL (공개 HTTPS, 로그인 불필요)
 
-**https://yongheyo.github.io/playhub-portal/**
+**https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/**
+
+- 로비: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/index.html
+- 2048: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/games/2048/
+- 슬라이딩: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/games/sliding/
+- 매치-3: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/games/match3/
+
+GitHub Pages 예정 URL: `https://yongheyo.github.io/playhub-portal/`  
+(현재 MCP 토큰에 Pages/workflow 권한이 없어 API로 활성화를 못 했습니다. 저장소 **Settings → Pages → Deploy from a branch → `main` / `/docs`** 한 번 켜면 됩니다. `docs/.nojekyll` 이미 포함.)
 
 ## 게임
 
@@ -33,7 +41,7 @@ python3 -m http.server 8080 --directory docs
 
 ## 기술
 
-- 순수 정적 (`docs/`) + Phaser 3 (unpkg CDN)
-- GitHub Pages: branch `main` / folder `/docs`
+- 순수 정적 (`docs/`) + Phaser 3 (jsDelivr / unpkg CDN)
+- GitHub Pages 대상: branch `main` / folder `/docs`
 - 한국어 UI, 모바일·데스크톱 입력 지원
 - 계정/결제 없음
