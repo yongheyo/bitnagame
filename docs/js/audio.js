@@ -1,8 +1,41 @@
 (() => {
-  // BitnaGame mute preference (cache BITNA3) (migrates legacy playhub-muted once)
+  // BitnaGame mute preference (migrates legacy playhub-muted once)
   const STORAGE_KEY = "bitnagame-muted";
   const LEGACY_MUTE_KEY = "playhub-muted";
-  const FREQ = { click: 880, move: 520, match: 660, win: 990 };
+  // Short oscillator presets (no binary assets). Aliases keep game calls simple.
+  const FREQ = {
+    click: 880,
+    move: 520,
+    slide: 500,
+    swap: 560,
+    match: 660,
+    merge: 740,
+    win: 990,
+    over: 200,
+    invalid: 160,
+  };
+  const DUR = {
+    click: 0.06,
+    move: 0.07,
+    slide: 0.07,
+    swap: 0.07,
+    match: 0.11,
+    merge: 0.1,
+    win: 0.2,
+    over: 0.18,
+    invalid: 0.09,
+  };
+  const WAVE = {
+    click: "sine",
+    move: "sine",
+    slide: "sine",
+    swap: "sine",
+    match: "triangle",
+    merge: "triangle",
+    win: "sine",
+    over: "square",
+    invalid: "square",
+  };
 
   if (localStorage.getItem(STORAGE_KEY) == null) {
     const legacy = localStorage.getItem(LEGACY_MUTE_KEY);
@@ -94,8 +127,9 @@
       osc.connect(gain);
       gain.connect(c.destination);
       const now = c.currentTime;
+      const peak = type === "square" ? 0.035 : 0.08;
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(peak, now + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
       osc.start(now);
       osc.stop(now + dur + 0.02);
@@ -104,9 +138,19 @@
 
   function play(name) {
     if (muted || !unlocked) return;
-    const freq = FREQ[name] || FREQ.click;
-    const dur = name === "win" ? 0.22 : name === "match" ? 0.12 : 0.07;
-    beep(freq, dur, name === "match" ? "triangle" : "sine");
+    const key = FREQ[name] != null ? name : "click";
+    const freq = FREQ[key];
+    const dur = DUR[key] || 0.07;
+    const type = WAVE[key] || "sine";
+    beep(freq, dur, type);
+    // Tiny second tick for win / merge feedback (still mute-aware via beep)
+    if (key === "win") {
+      setTimeout(() => beep(1320, 0.12, "sine"), 90);
+    } else if (key === "merge") {
+      setTimeout(() => beep(920, 0.06, "triangle"), 40);
+    } else if (key === "over") {
+      setTimeout(() => beep(140, 0.14, "square"), 70);
+    }
   }
 
   function onMuteChange(fn) {
