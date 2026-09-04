@@ -1,13 +1,15 @@
 (() => {
   const COLS = 8;
   const ROWS = 8;
-  const COLORS = [0xff5d8f, 0x6c8cff, 0x7ef0c3, 0xffd166, 0xb967ff];
+  // 5 gameplay colors mapped to pastel jewel styles (gloss + facets)
+  const COLORS = [0xff7aa8, 0x7eb0ff, 0x7ef0c3, 0xffd56a, 0xc59bff];
   const GOAL = 1000;
   const START_MOVES = 30;
-  const SWAP_MS = 140;
-  const CLEAR_MS = 160;
-  const FALL_BASE = 180;
+  const SWAP_MS = 220;
+  const CLEAR_MS = 180;
+  const FALL_BASE = 200;
   const SWIPE_MIN = 24;
+  const TEX = 128;
 
   const scoreEl = document.getElementById("score");
   const movesEl = document.getElementById("moves");
@@ -44,6 +46,36 @@
     overlayEl.setAttribute("aria-hidden", "false");
   }
 
+  function lerpColor(a, b, t) {
+    const ar = (a >> 16) & 0xff;
+    const ag = (a >> 8) & 0xff;
+    const ab = a & 0xff;
+    const br = (b >> 16) & 0xff;
+    const bg = (b >> 8) & 0xff;
+    const bb = b & 0xff;
+    const r = (ar + (br - ar) * t) | 0;
+    const g = (ag + (bg - ag) * t) | 0;
+    const bl = (ab + (bb - ab) * t) | 0;
+    return (r << 16) | (g << 8) | bl;
+  }
+
+  function lighten(c, amt) {
+    return lerpColor(c, 0xffffff, amt);
+  }
+
+  function darken(c, amt) {
+    return lerpColor(c, 0x000000, amt);
+  }
+
+  /** Jewel facet recipes — 5 pastel cute looks (rose, sky, mint, topaz, lilac). */
+  const JEWEL_STYLES = [
+    { base: 0xff7aa8, mid: 0xffb3d0, dark: 0xd94a7a, tip: 0xffe8f2, sides: 6 },
+    { base: 0x7eb0ff, mid: 0xb3d0ff, dark: 0x3d6fd4, tip: 0xe8f2ff, sides: 8 },
+    { base: 0x6ee8b8, mid: 0xa8f5d4, dark: 0x2fad7a, tip: 0xe6fff4, sides: 6 },
+    { base: 0xffd56a, mid: 0xffe6a8, dark: 0xd4a020, tip: 0xfff8e0, sides: 4 },
+    { base: 0xc59bff, mid: 0xdbc0ff, dark: 0x8a55d4, tip: 0xf3eaff, sides: 6 },
+  ];
+
   class Match3Scene extends Phaser.Scene {
     constructor() {
       super("Match3");
@@ -63,11 +95,21 @@
       this._dragPointerId = null;
       this._sx = 0;
       this._sy = 0;
+      this.combo = 0;
+      this.fxDepth = 40;
+      this.gemDepthBase = 10;
+    }
+
+    preload() {
+      // textures generated in create after graphics ready
     }
 
     create() {
       sceneRef = this;
       this.gen = resetGen;
+      this.combo = 0;
+
+      this.buildTextures();
 
       const W = this.scale.width;
       const H = this.scale.height;
@@ -79,24 +121,146 @@
 
       this.add
         .rectangle(W / 2, H / 2, size + 8, size + 8, 0x171c33)
-        .setStrokeStyle(2, 0x44507a);
+        .setStrokeStyle(2, 0x44507a)
+        .setDepth(0);
 
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const p = this.pos(r, c);
-          this.add.rectangle(
-            p.x,
-            p.y,
-            this.cell,
-            this.cell,
-            (r + c) % 2 ? 0x222a45 : 0x1c233b
-          );
+          this.add
+            .rectangle(
+              p.x,
+              p.y,
+              this.cell,
+              this.cell,
+              (r + c) % 2 ? 0x222a45 : 0x1c233b
+            )
+            .setDepth(1);
         }
       }
 
       this.input.on("pointerdown", () => unlockAudio());
 
       this.newGame(false);
+    }
+
+    buildTextures() {
+      if (this.textures.exists("jewel0")) return;
+
+      // Soft circle particle for bursts / dust
+      {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(8, 8, 7);
+        g.generateTexture("fxdot", 16, 16);
+        g.destroy();
+      }
+
+      // Tiny square sparkle
+      {
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        g.fillStyle(0xffffff, 1);
+        g.fillRect(3, 3, 6, 6);
+        g.generateTexture("fxspark", 12, 12);
+        g.destroy();
+      }
+
+      JEWEL_STYLES.forEach((style, idx) => {
+        this.drawJewelTexture("jewel" + idx, style);
+      });
+    }
+
+    drawJewelTexture(key, style) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const cx = TEX / 2;
+      const cy = TEX / 2;
+      const R = TEX * 0.42;
+      const sides = style.sides;
+      const pts = [];
+      const rot = sides === 4 ? Math.PI / 4 : -Math.PI / 2;
+      for (let i = 0; i < sides; i++) {
+        const a = rot + (i / sides) * Math.PI * 2;
+        pts.push({ x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R });
+      }
+
+      // Soft drop shadow
+      g.fillStyle(0x000000, 0.22);
+      g.beginPath();
+      g.moveTo(pts[0].x + 3, pts[0].y + 5);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x + 3, pts[i].y + 5);
+      g.closePath();
+      g.fillPath();
+
+      // Outer body
+      g.fillStyle(style.base, 1);
+      g.beginPath();
+      g.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+      g.closePath();
+      g.fillPath();
+
+      // Facet wedges from center
+      for (let i = 0; i < sides; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % sides];
+        const shade = i % 2 === 0 ? lighten(style.base, 0.28) : darken(style.base, 0.18);
+        g.fillStyle(shade, 0.92);
+        g.beginPath();
+        g.moveTo(cx, cy);
+        g.lineTo(a.x, a.y);
+        g.lineTo(b.x, b.y);
+        g.closePath();
+        g.fillPath();
+      }
+
+      // Inner table (cut face)
+      const innerR = R * 0.42;
+      g.fillStyle(style.mid, 0.95);
+      g.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const a = rot + (i / sides) * Math.PI * 2;
+        const x = cx + Math.cos(a) * innerR;
+        const y = cy + Math.sin(a) * innerR;
+        if (i === 0) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      }
+      g.closePath();
+      g.fillPath();
+
+      // Bright table highlight
+      g.fillStyle(style.tip, 0.55);
+      g.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const a = rot + (i / sides) * Math.PI * 2;
+        const x = cx + Math.cos(a) * innerR * 0.55 - 2;
+        const y = cy + Math.sin(a) * innerR * 0.55 - 3;
+        if (i === 0) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      }
+      g.closePath();
+      g.fillPath();
+
+      // Gloss blob
+      g.fillStyle(0xffffff, 0.55);
+      g.fillEllipse(cx - R * 0.22, cy - R * 0.28, R * 0.28, R * 0.18);
+      g.fillStyle(0xffffff, 0.28);
+      g.fillEllipse(cx + R * 0.18, cy + R * 0.12, R * 0.16, R * 0.1);
+
+      // Rim
+      g.lineStyle(3, lighten(style.dark, 0.15), 0.65);
+      g.beginPath();
+      g.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+      g.closePath();
+      g.strokePath();
+
+      // Tiny sparkle
+      g.fillStyle(0xffffff, 0.9);
+      g.fillCircle(cx - R * 0.08, cy - R * 0.35, 3);
+      g.fillCircle(cx + R * 0.3, cy - R * 0.05, 2);
+
+      g.generateTexture(key, TEX, TEX);
+      g.destroy();
     }
 
     pos(r, c) {
@@ -114,42 +278,50 @@
       return v;
     }
 
+    gemDepth(r, c) {
+      return this.gemDepthBase + r * COLS + c;
+    }
+
     makeGem(r, c, color) {
       const p = this.pos(r, c);
+      const size = this.cell * 0.9;
       const g = this.add
-        .circle(p.x, p.y, this.cell * 0.38, COLORS[color], 1)
-        .setStrokeStyle(2, 0xffffff44)
+        .image(p.x, p.y, "jewel" + color)
+        .setDisplaySize(size, size)
+        .setDepth(this.gemDepth(r, c))
         .setData("r", r)
         .setData("c", c)
         .setData("color", color)
+        .setData("selected", false)
         .setInteractive({ useHandCursor: true });
 
-      const shine = this.add.circle(
-        p.x - this.cell * 0.12,
-        p.y - this.cell * 0.12,
-        this.cell * 0.1,
-        0xffffff,
-        0.35
-      );
-      g.shine = shine;
+      // Soft selection halo (hidden until selected)
+      const halo = this.add
+        .circle(p.x, p.y, this.cell * 0.42, 0xffffff, 0)
+        .setStrokeStyle(3, 0xffffff, 0)
+        .setDepth(g.depth - 0.1);
+      g.halo = halo;
 
       g.on("pointerdown", (pointer) => this.onGemPointerDown(g, pointer));
       g.on("pointerup", (pointer) => this.onGemPointerUp(g, pointer));
       g.on("pointerover", () => {
-        if (!this.busy && !this.ended && this._dragFrom) g.setScale(1.05);
+        if (!this.busy && !this.ended && this._dragFrom) g.setScale(1.06);
       });
       g.on("pointerout", () => {
-        if (
-          this.selected &&
-          this.selected.r === g.getData("r") &&
-          this.selected.c === g.getData("c")
-        ) {
-          return;
-        }
+        if (g.getData("selected")) return;
         if (g.active) g.setScale(1);
       });
 
       return g;
+    }
+
+    syncHalo(g) {
+      if (!g || !g.halo) return;
+      g.halo.x = g.x;
+      g.halo.y = g.y;
+      g.halo.setScale(g.scaleX);
+      g.halo.setDepth(g.depth - 0.1);
+      g.halo.setAlpha(g.alpha);
     }
 
     onGemPointerDown(gem, pointer) {
@@ -189,7 +361,6 @@
       this._dragPointerId = null;
 
       if (from.r === to.r && from.c === to.c) {
-        // Directional swipe from the selected/start gem onto empty board space.
         if (Math.hypot(dx, dy) >= SWIPE_MIN) {
           const dir =
             Math.abs(dx) > Math.abs(dy)
@@ -221,9 +392,9 @@
 
     destroyGem(g) {
       if (!g) return;
-      if (g.shine) {
-        g.shine.destroy();
-        g.shine = null;
+      if (g.halo) {
+        g.halo.destroy();
+        g.halo = null;
       }
       g.destroy();
     }
@@ -270,6 +441,7 @@
       this.selected = null;
       this._dragFrom = null;
       this._dragPointerId = null;
+      this.combo = 0;
       hideOverlay();
       this.newGame(true);
     }
@@ -287,6 +459,7 @@
       this.ended = false;
       this._dragFrom = null;
       this._dragPointerId = null;
+      this.combo = 0;
       hideOverlay();
       this.fillInitial();
       this.syncHud();
@@ -307,8 +480,14 @@
       this.selected = cell;
       const g = this.gems[cell.r][cell.c];
       if (g) {
-        g.setStrokeStyle(3, 0xffffff);
-        g.setScale(1.08);
+        g.setData("selected", true);
+        g.setScale(1.1);
+        g.setDepth(this.gemDepthBase + 80);
+        if (g.halo) {
+          g.halo.setStrokeStyle(3, 0xffffff, 0.95);
+          g.halo.setFillStyle(0xffffff, 0.08);
+          this.syncHalo(g);
+        }
       }
     }
 
@@ -317,8 +496,14 @@
         const row = this.gems[this.selected.r];
         const g = row && row[this.selected.c];
         if (g) {
-          g.setStrokeStyle(2, 0xffffff44);
+          g.setData("selected", false);
           g.setScale(1);
+          g.setDepth(this.gemDepth(g.getData("r"), g.getData("c")));
+          if (g.halo) {
+            g.halo.setStrokeStyle(3, 0xffffff, 0);
+            g.halo.setFillStyle(0xffffff, 0);
+            this.syncHalo(g);
+          }
         }
       }
       this.selected = null;
@@ -329,6 +514,7 @@
       if (!this.isAdjacent(a, b)) return;
       const myGen = this.gen;
       this.busy = true;
+      this.combo = 0;
       this.swapCells(a, b);
       this.animateSwap(a, b, () => {
         if (this.gen !== myGen) return;
@@ -366,11 +552,16 @@
       }
     }
 
+    /**
+     * Overlapping swap: one gem arcs over (scale up + high depth),
+     * the other dips under (scale down + low depth) so they pass through each other.
+     */
     animateSwap(a, b, done) {
-      const g1 = this.gems[b.r][b.c];
-      const g2 = this.gems[a.r][a.c];
-      const p1 = this.pos(b.r, b.c);
-      const p2 = this.pos(a.r, a.c);
+      const gOver = this.gems[b.r][b.c]; // moving toward b
+      const gUnder = this.gems[a.r][a.c]; // moving toward a
+      const pOver = this.pos(b.r, b.c);
+      const pUnder = this.pos(a.r, a.c);
+
       let left = 2;
       let finished = false;
       const finish = () => {
@@ -380,44 +571,66 @@
           done();
         }
       };
-      this.time.delayedCall(SWAP_MS + 400, () => {
+      this.time.delayedCall(SWAP_MS + 500, () => {
         if (!finished) {
           finished = true;
           left = 0;
           done();
         }
       });
-      [
-        [g1, p1],
-        [g2, p2],
-      ].forEach(([g, p]) => {
+
+      const runArc = (g, dest, over) => {
         if (!g) {
           finish();
           return;
         }
+        const sx = g.x;
+        const sy = g.y;
+        const mx = (sx + dest.x) / 2;
+        const my = (sy + dest.y) / 2;
+        // Perpendicular offset for arc (passes beside / over)
+        const dx = dest.x - sx;
+        const dy = dest.y - sy;
+        const len = Math.hypot(dx, dy) || 1;
+        const ox = (-dy / len) * this.cell * (over ? 0.38 : -0.22);
+        const oy = (dx / len) * this.cell * (over ? 0.38 : -0.22) - (over ? this.cell * 0.18 : this.cell * 0.06);
+
+        const startDepth = g.depth;
+        g.setDepth(over ? this.gemDepthBase + 100 : this.gemDepthBase + 2);
+
+        const state = { t: 0 };
         this.tweens.add({
-          targets: g,
-          x: p.x,
-          y: p.y,
+          targets: state,
+          t: 1,
           duration: SWAP_MS,
-          ease: "Sine.Out",
+          ease: "Sine.InOut",
           onUpdate: () => {
-            if (g.shine) {
-              g.shine.x = g.x - this.cell * 0.12;
-              g.shine.y = g.y - this.cell * 0.12;
-            }
+            const t = state.t;
+            const omt = 1 - t;
+            // Quadratic bezier through mid+offset
+            const bx = omt * omt * sx + 2 * omt * t * (mx + ox) + t * t * dest.x;
+            const by = omt * omt * sy + 2 * omt * t * (my + oy) + t * t * dest.y;
+            g.x = bx;
+            g.y = by;
+            const bump = over
+              ? 1 + 0.28 * Math.sin(Math.PI * t)
+              : 1 - 0.14 * Math.sin(Math.PI * t);
+            g.setScale(bump);
+            this.syncHalo(g);
           },
           onComplete: () => {
-            g.x = p.x;
-            g.y = p.y;
-            if (g.shine) {
-              g.shine.x = g.x - this.cell * 0.12;
-              g.shine.y = g.y - this.cell * 0.12;
-            }
+            g.x = dest.x;
+            g.y = dest.y;
+            g.setScale(1);
+            g.setDepth(this.gemDepth(g.getData("r"), g.getData("c")));
+            this.syncHalo(g);
             finish();
           },
         });
-      });
+      };
+
+      runArc(gOver, pOver, true);
+      runArc(gUnder, pUnder, false);
     }
 
     findMatches() {
@@ -453,19 +666,174 @@
       return list;
     }
 
+    spawnBurst(x, y, colorIdx) {
+      const tint = COLORS[colorIdx] || 0xffffff;
+      const count = 10;
+      for (let i = 0; i < count; i++) {
+        const ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+        const dist = this.cell * (0.35 + Math.random() * 0.55);
+        const dot = this.add
+          .image(x, y, i % 3 === 0 ? "fxspark" : "fxdot")
+          .setDisplaySize(8 + Math.random() * 6, 8 + Math.random() * 6)
+          .setTint(tint)
+          .setAlpha(0.95)
+          .setDepth(this.fxDepth);
+        this.tweens.add({
+          targets: dot,
+          x: x + Math.cos(ang) * dist,
+          y: y + Math.sin(ang) * dist,
+          alpha: 0,
+          scale: 0.2,
+          duration: 220 + Math.random() * 160,
+          ease: "Cubic.Out",
+          onComplete: () => dot.destroy(),
+        });
+      }
+      // Center flash
+      const flash = this.add
+        .circle(x, y, this.cell * 0.2, 0xffffff, 0.7)
+        .setDepth(this.fxDepth);
+      this.tweens.add({
+        targets: flash,
+        scale: 2.2,
+        alpha: 0,
+        duration: 180,
+        ease: "Cubic.Out",
+        onComplete: () => flash.destroy(),
+      });
+    }
+
+    spawnFallDust(g) {
+      if (!g || !g.active) return;
+      const tint = COLORS[g.getData("color")] || 0xffffff;
+      const dust = this.add
+        .image(g.x + (Math.random() - 0.5) * 8, g.y - this.cell * 0.15, "fxdot")
+        .setDisplaySize(5, 5)
+        .setTint(lighten(tint, 0.35))
+        .setAlpha(0.55)
+        .setDepth(this.fxDepth - 1);
+      this.tweens.add({
+        targets: dust,
+        y: dust.y - 10 - Math.random() * 14,
+        x: dust.x + (Math.random() - 0.5) * 16,
+        alpha: 0,
+        scale: 0.3,
+        duration: 280,
+        ease: "Sine.Out",
+        onComplete: () => dust.destroy(),
+      });
+    }
+
+    showComboPop(n, matches) {
+      if (n < 2) return;
+      const W = this.scale.width;
+      const labels = ["", "", "콤보!", "대콤보!", "슈퍼!", "울트라!"];
+      const label = (labels[Math.min(n, labels.length - 1)] || "콤보!") + " x" + n;
+      const pts = matches.length * 10;
+      const txt = this.add
+        .text(W / 2, this.originY + this.cell * 1.2, label, {
+          fontFamily: "system-ui, sans-serif",
+          fontSize: Math.max(18, Math.floor(this.cell * 0.55)) + "px",
+          fontStyle: "bold",
+          color: "#fff7d6",
+          stroke: "#5a3d00",
+          strokeThickness: 5,
+        })
+        .setOrigin(0.5)
+        .setDepth(this.fxDepth + 5)
+        .setAlpha(0)
+        .setScale(0.6);
+      const sub = this.add
+        .text(W / 2, txt.y + this.cell * 0.45, "+" + pts, {
+          fontFamily: "system-ui, sans-serif",
+          fontSize: Math.max(14, Math.floor(this.cell * 0.38)) + "px",
+          fontStyle: "bold",
+          color: "#a8ffd8",
+          stroke: "#0a3d2a",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5)
+        .setDepth(this.fxDepth + 5)
+        .setAlpha(0);
+
+      this.tweens.add({
+        targets: txt,
+        alpha: 1,
+        scale: 1.15,
+        y: txt.y - 8,
+        duration: 180,
+        ease: "Back.Out",
+        onComplete: () => {
+          this.tweens.add({
+            targets: txt,
+            alpha: 0,
+            y: txt.y - 28,
+            scale: 1.3,
+            duration: 420,
+            delay: 220,
+            ease: "Cubic.In",
+            onComplete: () => txt.destroy(),
+          });
+        },
+      });
+      this.tweens.add({
+        targets: sub,
+        alpha: 1,
+        y: sub.y - 6,
+        duration: 200,
+        delay: 40,
+        ease: "Sine.Out",
+        onComplete: () => {
+          this.tweens.add({
+            targets: sub,
+            alpha: 0,
+            y: sub.y - 24,
+            duration: 400,
+            delay: 260,
+            onComplete: () => sub.destroy(),
+          });
+        },
+      });
+
+      // Confetti sprinkle on big combos
+      if (n >= 3) {
+        for (let i = 0; i < 12; i++) {
+          const c = COLORS[i % COLORS.length];
+          const p = this.add
+            .image(W / 2 + (Math.random() - 0.5) * this.cell * 2, txt.y, "fxspark")
+            .setTint(c)
+            .setDisplaySize(7, 7)
+            .setDepth(this.fxDepth + 4);
+          this.tweens.add({
+            targets: p,
+            x: p.x + (Math.random() - 0.5) * this.cell * 3,
+            y: p.y + this.cell * (0.5 + Math.random()),
+            alpha: 0,
+            angle: Math.random() * 180,
+            duration: 500,
+            ease: "Cubic.Out",
+            onComplete: () => p.destroy(),
+          });
+        }
+      }
+    }
+
     resolveBoard() {
       const myGen = this.gen;
       const matches = this.findMatches();
       if (!matches.length) {
+        this.combo = 0;
         this.busy = false;
         this.checkEnd();
         return;
       }
       this.busy = true;
+      this.combo += 1;
       // Score = cleared gems × 10 (locked spec)
       this.score += matches.length * 10;
       sfx("match");
       this.syncHud();
+      this.showComboPop(this.combo, matches);
 
       let pending = matches.length;
       let advanced = false;
@@ -478,21 +846,36 @@
 
       matches.forEach(({ r, c }) => {
         const g = this.gems[r][c];
+        const color = this.grid[r][c];
         this.grid[r][c] = -1;
         this.gems[r][c] = null;
         if (!g) {
           if (--pending === 0) advance();
           return;
         }
+        const p = this.pos(r, c);
+        this.spawnBurst(p.x, p.y, color >= 0 ? color : g.getData("color"));
         this.tweens.add({
-          targets: [g, g.shine].filter(Boolean),
-          scale: 0,
-          alpha: 0,
-          duration: CLEAR_MS,
-          ease: "Back.In",
+          targets: g,
+          scale: 1.35,
+          duration: CLEAR_MS * 0.35,
+          yoyo: false,
+          ease: "Sine.Out",
+          onUpdate: () => this.syncHalo(g),
           onComplete: () => {
-            this.destroyGem(g);
-            if (--pending === 0) advance();
+            this.tweens.add({
+              targets: g,
+              scale: 0,
+              alpha: 0,
+              angle: (Math.random() - 0.5) * 40,
+              duration: CLEAR_MS * 0.65,
+              ease: "Back.In",
+              onUpdate: () => this.syncHalo(g),
+              onComplete: () => {
+                this.destroyGem(g);
+                if (--pending === 0) advance();
+              },
+            });
           },
         });
       });
@@ -529,7 +912,7 @@
             const g = this.makeGem(r, c, color);
             const startY = this.originY - (ROWS - r) * (this.cell + this.pad);
             g.y = startY;
-            if (g.shine) g.shine.y = startY - this.cell * 0.12;
+            this.syncHalo(g);
             this.gems[r][c] = g;
           }
         }
@@ -551,24 +934,44 @@
           const g = this.gems[r][c];
           if (!g) continue;
           const p = this.pos(r, c);
-          if (Math.abs(g.x - p.x) < 1 && Math.abs(g.y - p.y) < 1) continue;
+          if (Math.abs(g.x - p.x) < 1 && Math.abs(g.y - p.y) < 1) {
+            g.setDepth(this.gemDepth(r, c));
+            continue;
+          }
           moving++;
+          let dustAcc = 0;
+          const fallDist = Math.abs(g.y - p.y);
           this.tweens.add({
             targets: g,
             x: p.x,
             y: p.y,
-            duration: FALL_BASE + (ROWS - r) * 12,
+            duration: FALL_BASE + (ROWS - r) * 14 + Math.min(120, fallDist * 0.15),
             ease: "Bounce.Out",
             onUpdate: () => {
-              if (g.shine) {
-                g.shine.x = g.x - this.cell * 0.12;
-                g.shine.y = g.y - this.cell * 0.12;
-              }
+              this.syncHalo(g);
+              g.setDepth(this.gemDepthBase + 50);
+              dustAcc += 1;
+              if (dustAcc % 3 === 0) this.spawnFallDust(g);
             },
             onComplete: () => {
-              if (g.shine) {
-                g.shine.x = g.x - this.cell * 0.12;
-                g.shine.y = g.y - this.cell * 0.12;
+              g.setDepth(this.gemDepth(r, c));
+              this.syncHalo(g);
+              // Landing puff
+              for (let i = 0; i < 4; i++) {
+                const d = this.add
+                  .image(g.x + (Math.random() - 0.5) * 12, g.y + this.cell * 0.28, "fxdot")
+                  .setDisplaySize(4, 4)
+                  .setTint(0xc8d0e8)
+                  .setAlpha(0.5)
+                  .setDepth(this.fxDepth - 1);
+                this.tweens.add({
+                  targets: d,
+                  x: d.x + (Math.random() - 0.5) * 20,
+                  y: d.y - 6 - Math.random() * 8,
+                  alpha: 0,
+                  duration: 220,
+                  onComplete: () => d.destroy(),
+                });
               }
               moving--;
               if (moving === 0) cont();
@@ -577,7 +980,7 @@
         }
       }
       if (moving === 0) cont();
-      else this.time.delayedCall(2500, cont);
+      else this.time.delayedCall(2800, cont);
     }
 
     checkEnd() {
@@ -611,6 +1014,7 @@
     scene.selected = null;
     scene._dragFrom = null;
     scene._dragPointerId = null;
+    scene.combo = 0;
     scene.gen = resetGen;
 
     if (scene.sys && scene.sys.isActive() && typeof scene.hardReset === "function") {
