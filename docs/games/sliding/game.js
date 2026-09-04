@@ -14,11 +14,11 @@
   let resetGen = 0;
 
   function sfx(name) {
-    if (window.PlayHubAudio) window.PlayHubAudio.play(name);
+    if (window.BitnaGameAudio) window.BitnaGameAudio.play(name);
   }
 
   function unlockAudio() {
-    if (window.PlayHubAudio) window.PlayHubAudio.unlock();
+    if (window.BitnaGameAudio) window.BitnaGameAudio.unlock();
   }
 
   function hideOverlay() {
@@ -318,7 +318,7 @@
     }
   }
 
-  window.__playhubSlidingReset = () => {
+  function hardSlidingReset() {
     unlockAudio();
     if (movesEl) movesEl.textContent = "0";
     hideOverlay();
@@ -343,7 +343,11 @@
       return;
     }
     if (typeof scene.shuffleBoard === "function") scene.shuffleBoard(true);
-  };
+  }
+
+  // Bitna + legacy PlayHub aliases — both work while cleared/busy via resetGen.
+  window.__bitnaSlidingReset = hardSlidingReset;
+  window.__playhubSlidingReset = hardSlidingReset;
 
   const boot = () => {
     const el = document.getElementById("game-container");
@@ -379,11 +383,14 @@
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        window.__playhubSlidingReset();
+        hardSlidingReset();
       });
     };
+    // Always-visible controls + clear overlay — hard reset even while cleared/busy.
+    bindReset("btn-new");
     bindReset("btn-shuffle");
     bindReset("overlay-new");
+    bindReset("overlay-shuffle");
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
