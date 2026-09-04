@@ -4,7 +4,71 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>2048 — PlayHub</title>
-  <link rel="stylesheet" href="../../css/style.css?v=AUDIO1" />
+  <link rel="stylesheet" href="../../css/style.css?v=REBUILD2048" />
+  <style>
+    .game-board-wrap {
+      position: relative;
+      width: min(100%, 480px);
+      margin: 0 auto;
+    }
+    .game-board-wrap #game-container {
+      width: 100%;
+    }
+    #game-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 20px;
+      border-radius: 16px;
+      background: rgba(8, 10, 22, 0.78);
+      backdrop-filter: blur(4px);
+      text-align: center;
+    }
+    #game-overlay[hidden] { display: none !important; }
+    #game-overlay h2 {
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    #game-overlay p {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+      max-width: 26ch;
+    }
+    #game-overlay .overlay-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 6px;
+    }
+    #game-overlay .overlay-actions button {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      min-width: 108px;
+    }
+    #game-overlay .overlay-actions button.primary {
+      background: var(--accent);
+      border-color: transparent;
+    }
+    @media (max-width: 390px) {
+      .game-stage { padding: 12px 10px 20px; gap: 12px; }
+      .controls button { min-width: 140px; width: 100%; }
+      .hint { font-size: 0.8rem; padding: 0 4px; }
+      .topbar .title { font-size: 0.95rem; }
+    }
+  </style>
   <script src="https://unpkg.com/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body class="game-page">
@@ -18,13 +82,23 @@
     </div>
   </header>
   <main class="game-stage">
-    <div id="game-container"></div>
-    <div class="controls">
-      <button class="primary" id="btn-new" type="button" onclick="window.__playhub2048Reset && window.__playhub2048Reset()">새 게임</button>
+    <div class="game-board-wrap">
+      <div id="game-container"></div>
+      <div id="game-overlay" hidden aria-hidden="true" role="dialog" aria-labelledby="overlay-title">
+        <h2 id="overlay-title">게임 오버</h2>
+        <p id="overlay-sub">더 이상 이동할 수 없어요</p>
+        <div class="overlay-actions">
+          <button type="button" id="overlay-continue" hidden>계속하기</button>
+          <button type="button" class="primary" id="overlay-new">새 게임</button>
+        </div>
+      </div>
     </div>
-    <p class="hint">키보드 화살표 또는 화면을 스와이프하세요. 같은 숫자를 합쳐 2048을 만드세요!</p>
+    <div class="controls">
+      <button class="primary" id="btn-new" type="button">새 게임</button>
+    </div>
+    <p class="hint">화살표·WASD 또는 스와이프로 같은 숫자를 합쳐 2048을 만드세요!</p>
   </main>
   <script src="../../js/audio.js?v=AUDIO1"></script>
-  <script src="game.js?v=AUDIO1"></script>
+  <script src="game.js?v=REBUILD2048"></script>
 </body>
 </html>
