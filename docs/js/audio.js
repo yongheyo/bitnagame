@@ -1,6 +1,13 @@
 (() => {
-  const STORAGE_KEY = "playhub-muted";
+  // BitnaGame mute preference (migrates legacy playhub-muted once)
+  const STORAGE_KEY = "bitnagame-muted";
+  const LEGACY_MUTE_KEY = "playhub-muted";
   const FREQ = { click: 880, move: 520, match: 660, win: 990 };
+
+  if (localStorage.getItem(STORAGE_KEY) == null) {
+    const legacy = localStorage.getItem(LEGACY_MUTE_KEY);
+    if (legacy != null) localStorage.setItem(STORAGE_KEY, legacy);
+  }
 
   let muted = localStorage.getItem(STORAGE_KEY) === "1";
   let ctx = null;
@@ -25,7 +32,7 @@
         fn(muted);
       } catch (_) {}
     });
-    document.querySelectorAll("[data-playhub-mute]").forEach(syncButton);
+    document.querySelectorAll("[data-bitnagame-mute]").forEach(syncButton);
   }
 
   function syncButton(btn) {
@@ -109,7 +116,7 @@
 
   function bindMuteButton(btn) {
     if (!btn) return;
-    btn.setAttribute("data-playhub-mute", "1");
+    btn.setAttribute("data-bitnagame-mute", "1");
     syncButton(btn);
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -131,7 +138,7 @@
   }
 
   function initUi() {
-    document.querySelectorAll("[data-playhub-mute]").forEach(bindMuteButton);
+    document.querySelectorAll("[data-bitnagame-mute]").forEach(bindMuteButton);
   }
 
   armUnlock();
@@ -141,7 +148,7 @@
     initUi();
   }
 
-  window.PlayHubAudio = {
+  window.BitnaGameAudio = {
     isMuted,
     setMuted,
     toggleMute,
