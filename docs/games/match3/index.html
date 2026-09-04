@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>매치-3 — PlayHub</title>
+  <link rel="stylesheet" href="../../css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body class="game-page">
+  <header class="topbar">
+    <a class="back" href="../../">← 로비</a>
+    <div class="title">매치-3</div>
+    <div class="hud">
+      <div class="pill">점수 <span id="score">0</span></div>
+      <div class="pill">목표 <span id="goal">1500</span></div>
+      <div class="pill">이동 <span id="moves">30</span></div>
+    </div>
+  </header>
+  <main class="game-stage">
+    <div id="game-container"></div>
+    <div class="controls">
+      <button class="primary" id="btn-new" type="button">새 게임</button>
+    </div>
+    <p class="hint">인접한 보석을 드래그/탭으로 바꿔 3개 이상 연결하세요. 30수 안에 1500점을 목표로!</p>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
