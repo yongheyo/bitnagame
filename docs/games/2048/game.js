@@ -69,16 +69,18 @@
         else this.tryMove(dy > 0 ? "down" : "up");
       });
 
-      document.getElementById("btn-new").onclick = () => this.newGame();
+      document.getElementById("btn-new").addEventListener("click", () => this.newGame());
       this.newGame();
     }
 
     newGame() {
       this.tweens.killAll();
-      this.grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-      this.tiles.forEach((t) => t && t.destroy());
+      this.tiles.forEach((row) => row.forEach((t) => t && t.destroy()));
       this.tiles = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+      if (this.tileLayer) this.tileLayer.removeAll(true);
+      this.grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
       this.score = 0;
+      scoreEl.textContent = "0";
       this.busy = false;
       this.over = false;
       this.won = false;
@@ -222,6 +224,7 @@
     }
 
     animateTo(next, done) {
+      // rebuild tiles simply for reliability
       this.tiles.forEach((row) => row.forEach((t) => t && t.destroy()));
       this.tiles = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
       for (let r = 0; r < SIZE; r++) {
