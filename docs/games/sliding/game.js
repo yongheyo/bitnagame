@@ -67,7 +67,7 @@
       cont.n = n;
       cont.r = r;
       cont.c = c;
-      bg.on("pointerdown", () => this.onTap(cont));
+      bg.on("pointerdown", () => { if (window.PlayHubAudio) window.PlayHubAudio.unlock(); this.onTap(cont); });
       return cont;
     }
 
@@ -102,7 +102,7 @@
       let inv = 0;
       for (let i = 0; i < arr.length; i++) {
         for (let j = i + 1; j < arr.length; j++) {
-          if (arr[i] && arr[j] && arr[i] > arr[j]) inv++;
+          if (arr[i] && arr[j] && arr[i] > arr[j]) inv++) inv++;
         }
       }
       return inv;
@@ -154,6 +154,7 @@
       tile.c = bc;
       this.moves += 1;
       movesEl.textContent = String(this.moves);
+      if (window.PlayHubAudio) window.PlayHubAudio.play("move");
 
       const target = this.pos(br, bc);
       this.tweens.add({
