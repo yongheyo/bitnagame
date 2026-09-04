@@ -1,4 +1,4 @@
-# PlayHub
+# BitnaGame (빛나게임)
 
 Phaser 3 기반 미니 게임 포털 — 계정 없이 바로 플레이.
 
