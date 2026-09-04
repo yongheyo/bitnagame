@@ -33,7 +33,7 @@ python3 -m http.server 8080 --directory docs
 
 ## 기술
 
-- 순수 정적 (`docs/`) + Phaser 3 (jsDelivr)
+- 순수 정적 (`docs/`) + Phaser 3 (unpkg CDN)
 - GitHub Pages: branch `main` / folder `/docs`
 - 한국어 UI, 모바일·데스크톱 입력 지원
 - 계정/결제 없음
