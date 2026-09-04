@@ -127,7 +127,7 @@
 
     cellPos(r, c) {
       return {
-        x: this.originX + PAD + c * (this.cell + PAD) + this.cell / 2;
+        x: this.originX + PAD + c * (this.cell + PAD) + this.cell / 2,
         y: this.originY + PAD + r * (this.cell + PAD) + this.cell / 2,
       };
     }
