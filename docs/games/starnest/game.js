@@ -464,8 +464,8 @@
     host.style.width = boxW + "px";
     host.style.height = boxH + "px";
     host.style.maxWidth = "100%";
-    host.style.overflow = "hidden";
     host.style.margin = "0 auto";
+    host.style.overflow = "hidden";
     gameRef = new Phaser.Game({
       type: Phaser.AUTO,
       parent: host,
