@@ -23,11 +23,11 @@
   let resetGen = 0;
 
   function sfx(name) {
-    if (window.PlayHubAudio) window.PlayHubAudio.play(name);
+    if (window.BitnaGameAudio) window.BitnaGameAudio.play(name);
   }
 
   function unlockAudio() {
-    if (window.PlayHubAudio) window.PlayHubAudio.unlock();
+    if (window.BitnaGameAudio) window.BitnaGameAudio.unlock();
   }
 
   function hideOverlay() {
@@ -592,7 +592,7 @@
     }
   }
 
-  window.__playhubMatch3Reset = () => {
+  window.__bitnaMatch3Reset = () => {
     unlockAudio();
     if (scoreEl) scoreEl.textContent = "0";
     if (movesEl) movesEl.textContent = String(START_MOVES);
@@ -657,7 +657,7 @@
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        window.__playhubMatch3Reset();
+        window.__bitnaMatch3Reset();
       });
     };
     bindReset("btn-new");
