@@ -193,6 +193,7 @@
     create() {
       sceneRef = this;
       this.add.rectangle(W / 2, H / 2, W, H, 0x070b18);
+      // stars
       for (let i = 0; i < 40; i++) {
         const s = this.add.circle(
           Phaser.Math.Between(8, W - 8),
