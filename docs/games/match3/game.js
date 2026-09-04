@@ -1,1 +1,1 @@
-@/workspace/bitnagame-week2/match3-game.js
+PLACEHOLDER_WILL_REPLACE
