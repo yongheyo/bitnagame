@@ -399,7 +399,7 @@
       this.score += plan.scoreGain;
       this.syncHud();
 
-      if (plan.scoreGain > 0) sfx("match");
+      if (plan.scoreGain > 0) sfx("merge");
       else sfx("move");
 
       this.animatePlan(plan, () => {
@@ -421,7 +421,7 @@
 
         if (!this.canMove()) {
           this.over = true;
-          sfx("click");
+          sfx("over");
           showOverlay("over");
         }
         this.busy = false;
