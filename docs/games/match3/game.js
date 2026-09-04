@@ -333,6 +333,7 @@
       this.animateSwap(a, b, () => {
         if (this.gen !== myGen) return;
         if (!this.findMatches().length) {
+          sfx("invalid");
           this.swapCells(a, b);
           this.animateSwap(a, b, () => {
             if (this.gen !== myGen) return;
@@ -342,7 +343,7 @@
         }
         this.movesLeft -= 1;
         this.syncHud();
-        sfx("move");
+        sfx("swap");
         this.resolveBoard();
       });
     }
