@@ -1,11 +1,48 @@
 (() => {
-  const COLS = 8, ROWS = 8;
-  const COLORS = [0xff5d8f, 0x6c8cff, 0x7ef0c3, 0xffd166, 0xb967ff, 0xff8c42];
-  const GOAL = 1500, START_MOVES = 30;
+  const COLS = 8;
+  const ROWS = 8;
+  const COLORS = [0xff5d8f, 0x6c8cff, 0x7ef0c3, 0xffd166, 0xb967ff];
+  const GOAL = 1000;
+  const START_MOVES = 30;
+  const SWAP_MS = 140;
+  const CLEAR_MS = 160;
+  const FALL_BASE = 180;
+  const SWIPE_MIN = 24;
+
   const scoreEl = document.getElementById("score");
   const movesEl = document.getElementById("moves");
   const goalEl = document.getElementById("goal");
-  goalEl.textContent = String(GOAL);
+  const overlayEl = document.getElementById("game-overlay");
+  const overlayTitle = document.getElementById("overlay-title");
+  const overlaySub = document.getElementById("overlay-sub");
+
+  if (goalEl) goalEl.textContent = String(GOAL);
+
+  let gameRef = null;
+  let sceneRef = null;
+  let resetGen = 0;
+
+  function sfx(name) {
+    if (window.PlayHubAudio) window.PlayHubAudio.play(name);
+  }
+
+  function unlockAudio() {
+    if (window.PlayHubAudio) window.PlayHubAudio.unlock();
+  }
+
+  function hideOverlay() {
+    if (!overlayEl) return;
+    overlayEl.hidden = true;
+    overlayEl.setAttribute("aria-hidden", "true");
+  }
+
+  function showEndOverlay(won, score) {
+    if (!overlayEl || !overlayTitle || !overlaySub) return;
+    overlayTitle.textContent = won ? "목표 달성!" : "이동 종료";
+    overlaySub.textContent = "점수 " + score;
+    overlayEl.hidden = false;
+    overlayEl.setAttribute("aria-hidden", "false");
+  }
 
   class Match3Scene extends Phaser.Scene {
     constructor() {
@@ -21,43 +58,45 @@
       this.originX = 0;
       this.originY = 0;
       this.ended = false;
-      this._busyTimer = null;
+      this.gen = 0;
+      this._dragFrom = null;
+      this._dragPointerId = null;
+      this._sx = 0;
+      this._sy = 0;
     }
 
     create() {
-      const W = this.scale.width, H = this.scale.height;
+      sceneRef = this;
+      this.gen = resetGen;
+
+      const W = this.scale.width;
+      const H = this.scale.height;
       const boardW = Math.min(W, H) - 16;
       this.cell = Math.floor((boardW - this.pad * (COLS + 1)) / COLS);
       const size = this.cell * COLS + this.pad * (COLS + 1);
       this.originX = (W - size) / 2;
       this.originY = (H - size) / 2;
 
-      this.add.rectangle(W / 2, H / 2, size + 8, size + 8, 0x171c33).setStrokeStyle(2, 0x44507a);
+      this.add
+        .rectangle(W / 2, H / 2, size + 8, size + 8, 0x171c33)
+        .setStrokeStyle(2, 0x44507a);
+
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const p = this.pos(r, c);
-          this.add.rectangle(p.x, p.y, this.cell, this.cell, (r + c) % 2 ? 0x222a45 : 0x1c233b);
+          this.add.rectangle(
+            p.x,
+            p.y,
+            this.cell,
+            this.cell,
+            (r + c) % 2 ? 0x222a45 : 0x1c233b
+          );
         }
       }
 
-      this.msg = this.add.text(W / 2, H / 2, "", {
-        fontFamily: "Noto Sans KR, sans-serif",
-        fontSize: "28px",
-        fontStyle: "bold",
-        color: "#fff",
-        backgroundColor: "#000000bb",
-        padding: { x: 16, y: 12 },
-        align: "center",
-      }).setOrigin(0.5).setDepth(40).setVisible(false);
+      this.input.on("pointerdown", () => unlockAudio());
 
-      document.getElementById("btn-new").onclick = () => {
-        if (window.PlayHubAudio) window.PlayHubAudio.unlock();
-        this.newGame();
-      };
-      this.input.on("pointerdown", () => {
-        if (window.PlayHubAudio) window.PlayHubAudio.unlock();
-      });
-      this.newGame();
+      this.newGame(false);
     }
 
     pos(r, c) {
@@ -77,7 +116,8 @@
 
     makeGem(r, c, color) {
       const p = this.pos(r, c);
-      const g = this.add.circle(p.x, p.y, this.cell * 0.38, COLORS[color], 1)
+      const g = this.add
+        .circle(p.x, p.y, this.cell * 0.38, COLORS[color], 1)
         .setStrokeStyle(2, 0xffffff44)
         .setData("r", r)
         .setData("c", c)
@@ -93,14 +133,19 @@
       );
       g.shine = shine;
 
-      // Per-gem handlers avoid Scale.FIT pointer/CSS mismatch from scene cellAt
       g.on("pointerdown", (pointer) => this.onGemPointerDown(g, pointer));
       g.on("pointerup", (pointer) => this.onGemPointerUp(g, pointer));
       g.on("pointerover", () => {
         if (!this.busy && !this.ended && this._dragFrom) g.setScale(1.05);
       });
       g.on("pointerout", () => {
-        if (this.selected && this.selected.r === g.getData("r") && this.selected.c === g.getData("c")) return;
+        if (
+          this.selected &&
+          this.selected.r === g.getData("r") &&
+          this.selected.c === g.getData("c")
+        ) {
+          return;
+        }
         if (g.active) g.setScale(1);
       });
 
@@ -112,6 +157,8 @@
       const cell = { r: gem.getData("r"), c: gem.getData("c") };
       this._dragFrom = cell;
       this._dragPointerId = pointer.id;
+      this._sx = pointer.x;
+      this._sy = pointer.y;
 
       if (this.selected) {
         if (this.selected.r === cell.r && this.selected.c === cell.c) {
@@ -134,14 +181,40 @@
       if (!this._dragFrom) return;
       if (this._dragPointerId != null && pointer.id !== this._dragPointerId) return;
 
-      const to = { r: gem.getData("r"), c: gem.getData("c") };
       const from = this._dragFrom;
+      const to = { r: gem.getData("r"), c: gem.getData("c") };
+      const dx = pointer.x - this._sx;
+      const dy = pointer.y - this._sy;
       this._dragFrom = null;
       this._dragPointerId = null;
 
-      if (from.r === to.r && from.c === to.c) return;
-      if (!this.isAdjacent(from, to)) return;
+      if (from.r === to.r && from.c === to.c) {
+        // Directional swipe from the selected/start gem onto empty board space.
+        if (Math.hypot(dx, dy) >= SWIPE_MIN) {
+          const dir =
+            Math.abs(dx) > Math.abs(dy)
+              ? dx > 0
+                ? { r: 0, c: 1 }
+                : { r: 0, c: -1 }
+              : dy > 0
+                ? { r: 1, c: 0 }
+                : { r: -1, c: 0 };
+          const nbr = { r: from.r + dir.r, c: from.c + dir.c };
+          if (
+            nbr.r >= 0 &&
+            nbr.r < ROWS &&
+            nbr.c >= 0 &&
+            nbr.c < COLS &&
+            this.isAdjacent(from, nbr)
+          ) {
+            this.clearSelect();
+            this.trySwap(from, nbr);
+          }
+        }
+        return;
+      }
 
+      if (!this.isAdjacent(from, to)) return;
       this.clearSelect();
       this.trySwap(from, to);
     }
@@ -168,8 +241,14 @@
     fillInitial() {
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          const left = c >= 2 && this.grid[r][c - 1] === this.grid[r][c - 2] ? this.grid[r][c - 1] : -1;
-          const up = r >= 2 && this.grid[r - 1][c] === this.grid[r - 2][c] ? this.grid[r - 1][c] : -1;
+          const left =
+            c >= 2 && this.grid[r][c - 1] === this.grid[r][c - 2]
+              ? this.grid[r][c - 1]
+              : -1;
+          const up =
+            r >= 2 && this.grid[r - 1][c] === this.grid[r - 2][c]
+              ? this.grid[r - 1][c]
+              : -1;
           const color = this.randColor(left, up);
           this.grid[r][c] = color;
           this.gems[r][c] = this.makeGem(r, c, color);
@@ -178,32 +257,28 @@
     }
 
     syncHud() {
-      scoreEl.textContent = String(this.score);
-      movesEl.textContent = String(this.movesLeft);
+      if (scoreEl) scoreEl.textContent = String(this.score);
+      if (movesEl) movesEl.textContent = String(this.movesLeft);
     }
 
-    unlockBusy() {
+    hardReset() {
+      this.gen = resetGen;
+      if (this.tweens) this.tweens.killAll();
+      if (this.time) this.time.removeAllEvents();
       this.busy = false;
-      if (this._busyTimer) {
-        this._busyTimer.remove(false);
-        this._busyTimer = null;
-      }
+      this.ended = false;
+      this.selected = null;
+      this._dragFrom = null;
+      this._dragPointerId = null;
+      hideOverlay();
+      this.newGame(true);
     }
 
-    armBusySafety(ms) {
-      if (this._busyTimer) this._busyTimer.remove(false);
-      this._busyTimer = this.time.delayedCall(ms || 4000, () => {
-        this._busyTimer = null;
-        this.busy = false;
-      });
-    }
+    newGame(fromHard) {
+      const myGen = this.gen;
+      if (this.tweens) this.tweens.killAll();
+      if (this.time) this.time.removeAllEvents();
 
-    newGame() {
-      this.tweens.killAll();
-      if (this._busyTimer) {
-        this._busyTimer.remove(false);
-        this._busyTimer = null;
-      }
       this.clearBoard();
       this.score = 0;
       this.movesLeft = START_MOVES;
@@ -212,10 +287,15 @@
       this.ended = false;
       this._dragFrom = null;
       this._dragPointerId = null;
-      this.msg.setVisible(false);
+      hideOverlay();
       this.fillInitial();
       this.syncHud();
-      this.time.delayedCall(50, () => this.resolveBoard());
+      if (fromHard) sfx("click");
+
+      this.time.delayedCall(40, () => {
+        if (this.gen !== myGen) return;
+        this.resolveBoard();
+      });
     }
 
     isAdjacent(a, b) {
@@ -234,7 +314,8 @@
 
     clearSelect() {
       if (this.selected) {
-        const g = this.gems[this.selected.r] && this.gems[this.selected.r][this.selected.c];
+        const row = this.gems[this.selected.r];
+        const g = row && row[this.selected.c];
         if (g) {
           g.setStrokeStyle(2, 0xffffff44);
           g.setScale(1);
@@ -246,19 +327,22 @@
     trySwap(a, b) {
       if (this.busy || this.ended) return;
       if (!this.isAdjacent(a, b)) return;
+      const myGen = this.gen;
       this.busy = true;
-      this.armBusySafety(5000);
       this.swapCells(a, b);
       this.animateSwap(a, b, () => {
+        if (this.gen !== myGen) return;
         if (!this.findMatches().length) {
           this.swapCells(a, b);
           this.animateSwap(a, b, () => {
-            this.unlockBusy();
+            if (this.gen !== myGen) return;
+            this.busy = false;
           });
           return;
         }
         this.movesLeft -= 1;
         this.syncHud();
+        sfx("move");
         this.resolveBoard();
       });
     }
@@ -267,7 +351,8 @@
       const t = this.grid[a.r][a.c];
       this.grid[a.r][a.c] = this.grid[b.r][b.c];
       this.grid[b.r][b.c] = t;
-      const g1 = this.gems[a.r][a.c], g2 = this.gems[b.r][b.c];
+      const g1 = this.gems[a.r][a.c];
+      const g2 = this.gems[b.r][b.c];
       this.gems[a.r][a.c] = g2;
       this.gems[b.r][b.c] = g1;
       if (g1) {
@@ -281,8 +366,10 @@
     }
 
     animateSwap(a, b, done) {
-      const g1 = this.gems[b.r][b.c], g2 = this.gems[a.r][a.c];
-      const p1 = this.pos(b.r, b.c), p2 = this.pos(a.r, a.c);
+      const g1 = this.gems[b.r][b.c];
+      const g2 = this.gems[a.r][a.c];
+      const p1 = this.pos(b.r, b.c);
+      const p2 = this.pos(a.r, a.c);
       let left = 2;
       let finished = false;
       const finish = () => {
@@ -292,15 +379,17 @@
           done();
         }
       };
-      // Safety: if tweens never complete, still unlock the swap chain
-      this.time.delayedCall(800, () => {
+      this.time.delayedCall(SWAP_MS + 400, () => {
         if (!finished) {
           finished = true;
           left = 0;
           done();
         }
       });
-      [[g1, p1], [g2, p2]].forEach(([g, p]) => {
+      [
+        [g1, p1],
+        [g2, p2],
+      ].forEach(([g, p]) => {
         if (!g) {
           finish();
           return;
@@ -309,7 +398,8 @@
           targets: g,
           x: p.x,
           y: p.y,
-          duration: 140,
+          duration: SWAP_MS,
+          ease: "Sine.Out",
           onUpdate: () => {
             if (g.shine) {
               g.shine.x = g.x - this.cell * 0.12;
@@ -334,8 +424,9 @@
       for (let r = 0; r < ROWS; r++) {
         let run = 1;
         for (let c = 1; c <= COLS; c++) {
-          if (c < COLS && this.grid[r][c] === this.grid[r][c - 1] && this.grid[r][c] >= 0) run++;
-          else {
+          if (c < COLS && this.grid[r][c] === this.grid[r][c - 1] && this.grid[r][c] >= 0) {
+            run++;
+          } else {
             if (run >= 3) for (let k = 0; k < run; k++) marked[r][c - 1 - k] = true;
             run = 1;
           }
@@ -344,8 +435,9 @@
       for (let c = 0; c < COLS; c++) {
         let run = 1;
         for (let r = 1; r <= ROWS; r++) {
-          if (r < ROWS && this.grid[r][c] === this.grid[r - 1][c] && this.grid[r][c] >= 0) run++;
-          else {
+          if (r < ROWS && this.grid[r][c] === this.grid[r - 1][c] && this.grid[r][c] >= 0) {
+            run++;
+          } else {
             if (run >= 3) for (let k = 0; k < run; k++) marked[r - 1 - k][c] = true;
             run = 1;
           }
@@ -361,25 +453,28 @@
     }
 
     resolveBoard() {
+      const myGen = this.gen;
       const matches = this.findMatches();
       if (!matches.length) {
-        this.unlockBusy();
+        this.busy = false;
         this.checkEnd();
         return;
       }
       this.busy = true;
-      this.armBusySafety(6000);
-      this.score += matches.length * 10 + Math.max(0, matches.length - 3) * 5;
-      if (window.PlayHubAudio) window.PlayHubAudio.play("match");
+      // Score = cleared gems × 10 (locked spec)
+      this.score += matches.length * 10;
+      sfx("match");
       this.syncHud();
+
       let pending = matches.length;
       let advanced = false;
       const advance = () => {
-        if (advanced) return;
+        if (advanced || this.gen !== myGen) return;
         advanced = true;
         this.collapseAndRefill();
       };
-      this.time.delayedCall(1200, advance);
+      this.time.delayedCall(CLEAR_MS + 900, advance);
+
       matches.forEach(({ r, c }) => {
         const g = this.gems[r][c];
         this.grid[r][c] = -1;
@@ -392,7 +487,8 @@
           targets: [g, g.shine].filter(Boolean),
           scale: 0,
           alpha: 0,
-          duration: 160,
+          duration: CLEAR_MS,
+          ease: "Back.In",
           onComplete: () => {
             this.destroyGem(g);
             if (--pending === 0) advance();
@@ -402,10 +498,13 @@
     }
 
     collapseAndRefill() {
+      const myGen = this.gen;
       for (let c = 0; c < COLS; c++) {
         const stack = [];
         for (let r = ROWS - 1; r >= 0; r--) {
-          if (this.grid[r][c] >= 0) stack.push({ color: this.grid[r][c], gem: this.gems[r][c] });
+          if (this.grid[r][c] >= 0) {
+            stack.push({ color: this.grid[r][c], gem: this.gems[r][c] });
+          }
         }
         for (let r = ROWS - 1; r >= 0; r--) {
           const idx = ROWS - 1 - r;
@@ -438,11 +537,13 @@
       let moving = 0;
       let continued = false;
       const cont = () => {
-        if (continued) return;
+        if (continued || this.gen !== myGen) return;
         continued = true;
-        this.time.delayedCall(40, () => this.resolveBoard());
+        this.time.delayedCall(40, () => {
+          if (this.gen !== myGen) return;
+          this.resolveBoard();
+        });
       };
-      this.armBusySafety(6000);
 
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -455,7 +556,7 @@
             targets: g,
             x: p.x,
             y: p.y,
-            duration: 180 + (ROWS - r) * 12,
+            duration: FALL_BASE + (ROWS - r) * 12,
             ease: "Bounce.Out",
             onUpdate: () => {
               if (g.shine) {
@@ -482,22 +583,58 @@
       if (this.ended) return;
       if (this.score >= GOAL) {
         this.ended = true;
-        this.msg.setText("목표 달성!\n점수 " + this.score).setVisible(true);
+        sfx("win");
+        showEndOverlay(true, this.score);
       } else if (this.movesLeft <= 0) {
         this.ended = true;
-        this.msg.setText("이동 종료\n점수 " + this.score).setVisible(true);
+        showEndOverlay(false, this.score);
       }
     }
   }
 
+  window.__playhubMatch3Reset = () => {
+    unlockAudio();
+    if (scoreEl) scoreEl.textContent = "0";
+    if (movesEl) movesEl.textContent = String(START_MOVES);
+    hideOverlay();
+    resetGen += 1;
+
+    if (!gameRef) return;
+    const scene = gameRef.scene.getScene("Match3") || sceneRef;
+    if (!scene) return;
+
+    if (scene.tweens) scene.tweens.killAll();
+    if (scene.time) scene.time.removeAllEvents();
+    scene.busy = false;
+    scene.ended = false;
+    scene.selected = null;
+    scene._dragFrom = null;
+    scene._dragPointerId = null;
+    scene.gen = resetGen;
+
+    if (scene.sys && scene.sys.isActive() && typeof scene.hardReset === "function") {
+      scene.hardReset();
+      return;
+    }
+    if (scene.sys && scene.sys.isActive()) {
+      scene.scene.restart();
+      return;
+    }
+    if (typeof scene.newGame === "function") scene.newGame(true);
+  };
+
   const boot = () => {
     const el = document.getElementById("game-container");
-    // Fixed square size; Scale.NONE avoids FIT letterbox pointer bugs
-    const w = Math.max(280, Math.min(480, el.clientWidth || 360));
+    if (!el) return;
+
+    // Fixed square; Scale.NONE avoids FIT letterbox / pointer interference with HTML controls.
+    const avail = el.clientWidth || Math.min(window.innerWidth - 24, 480);
+    const w = Math.max(280, Math.min(480, avail));
     el.style.width = w + "px";
     el.style.height = w + "px";
     el.style.margin = "0 auto";
-    new Phaser.Game({
+
+    gameRef = new Phaser.Game({
       type: Phaser.AUTO,
       parent: "game-container",
       width: w,
@@ -512,6 +649,19 @@
         activePointers: 3,
       },
     });
+
+    const bindReset = (id) => {
+      const btn = document.getElementById(id);
+      if (!btn || btn.dataset.phaserBound) return;
+      btn.dataset.phaserBound = "1";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.__playhubMatch3Reset();
+      });
+    };
+    bindReset("btn-new");
+    bindReset("overlay-new");
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
