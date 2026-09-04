@@ -1,8 +1,7 @@
 (() => {
   const COLS = 8, ROWS = 8;
   const COLORS = [0xff5d8f, 0x6c8cff, 0x7ef0c3, 0xffd166, 0xb967ff, 0xff8c42];
-  const GOAL = 1500;
-  const START_MOVES = 30;
+  const GOAL = 1500, START_MOVES = 30;
   const scoreEl = document.getElementById("score");
   const movesEl = document.getElementById("moves");
   const goalEl = document.getElementById("goal");
@@ -22,11 +21,11 @@
       this.originX = 0;
       this.originY = 0;
       this.ended = false;
+      this._busyTimer = null;
     }
 
     create() {
-      const W = this.scale.width;
-      const H = this.scale.height;
+      const W = this.scale.width, H = this.scale.height;
       const boardW = Math.min(W, H) - 16;
       this.cell = Math.floor((boardW - this.pad * (COLS + 1)) / COLS);
       const size = this.cell * COLS + this.pad * (COLS + 1);
@@ -51,8 +50,6 @@
         align: "center",
       }).setOrigin(0.5).setDepth(40).setVisible(false);
 
-      this.input.on("pointerdown", (p) => this.onPointer(p, true));
-      this.input.on("pointerup", (p) => this.onPointer(p, false));
       document.getElementById("btn-new").onclick = () => this.newGame();
       this.newGame();
     }
@@ -64,18 +61,11 @@
       };
     }
 
-    cellAt(x, y) {
-      const size = this.cell + this.pad;
-      const c = Math.floor((x - this.originX - this.pad / 2) / size);
-      const r = Math.floor((y - this.originY - this.pad / 2) / size);
-      if (r < 0 || c < 0 || r >= ROWS || c >= COLS) return null;
-      return { r, c };
-    }
-
-    randColor(avoidA, avoidB) {
+    randColor(a, b) {
       let v;
-      do { v = Phaser.Math.Between(0, COLORS.length - 1); }
-      while (v === avoidA || v === avoidB);
+      do {
+        v = Phaser.Math.Between(0, COLORS.length - 1);
+      } while (v === a || v === b);
       return v;
     }
 
@@ -83,16 +73,79 @@
       const p = this.pos(r, c);
       const g = this.add.circle(p.x, p.y, this.cell * 0.38, COLORS[color], 1)
         .setStrokeStyle(2, 0xffffff44)
-        .setData("r", r).setData("c", c).setData("color", color)
+        .setData("r", r)
+        .setData("c", c)
+        .setData("color", color)
         .setInteractive({ useHandCursor: true });
-      const shine = this.add.circle(p.x - this.cell * 0.12, p.y - this.cell * 0.12, this.cell * 0.1, 0xffffff, 0.35);
+
+      const shine = this.add.circle(
+        p.x - this.cell * 0.12,
+        p.y - this.cell * 0.12,
+        this.cell * 0.1,
+        0xffffff,
+        0.35
+      );
       g.shine = shine;
+
+      // Per-gem handlers avoid Scale.FIT pointer/CSS mismatch from scene cellAt
+      g.on("pointerdown", (pointer) => this.onGemPointerDown(g, pointer));
+      g.on("pointerup", (pointer) => this.onGemPointerUp(g, pointer));
+      g.on("pointerover", () => {
+        if (!this.busy && !this.ended && this._dragFrom) g.setScale(1.05);
+      });
+      g.on("pointerout", () => {
+        if (this.selected && this.selected.r === g.getData("r") && this.selected.c === g.getData("c")) return;
+        if (g.active) g.setScale(1);
+      });
+
       return g;
+    }
+
+    onGemPointerDown(gem, pointer) {
+      if (this.busy || this.ended || !gem.active) return;
+      const cell = { r: gem.getData("r"), c: gem.getData("c") };
+      this._dragFrom = cell;
+      this._dragPointerId = pointer.id;
+
+      if (this.selected) {
+        if (this.selected.r === cell.r && this.selected.c === cell.c) {
+          this.clearSelect();
+          return;
+        }
+        if (this.isAdjacent(this.selected, cell)) {
+          const a = this.selected;
+          this.clearSelect();
+          this._dragFrom = null;
+          this.trySwap(a, cell);
+          return;
+        }
+      }
+      this.select(cell);
+    }
+
+    onGemPointerUp(gem, pointer) {
+      if (this.busy || this.ended || !gem.active) return;
+      if (!this._dragFrom) return;
+      if (this._dragPointerId != null && pointer.id !== this._dragPointerId) return;
+
+      const to = { r: gem.getData("r"), c: gem.getData("c") };
+      const from = this._dragFrom;
+      this._dragFrom = null;
+      this._dragPointerId = null;
+
+      if (from.r === to.r && from.c === to.c) return;
+      if (!this.isAdjacent(from, to)) return;
+
+      this.clearSelect();
+      this.trySwap(from, to);
     }
 
     destroyGem(g) {
       if (!g) return;
-      if (g.shine) g.shine.destroy();
+      if (g.shine) {
+        g.shine.destroy();
+        g.shine = null;
+      }
       g.destroy();
     }
 
@@ -123,48 +176,40 @@
       movesEl.textContent = String(this.movesLeft);
     }
 
+    unlockBusy() {
+      this.busy = false;
+      if (this._busyTimer) {
+        this._busyTimer.remove(false);
+        this._busyTimer = null;
+      }
+    }
+
+    armBusySafety(ms) {
+      if (this._busyTimer) this._busyTimer.remove(false);
+      this._busyTimer = this.time.delayedCall(ms || 4000, () => {
+        this._busyTimer = null;
+        this.busy = false;
+      });
+    }
+
     newGame() {
       this.tweens.killAll();
+      if (this._busyTimer) {
+        this._busyTimer.remove(false);
+        this._busyTimer = null;
+      }
       this.clearBoard();
       this.score = 0;
       this.movesLeft = START_MOVES;
       this.busy = false;
       this.selected = null;
       this.ended = false;
+      this._dragFrom = null;
+      this._dragPointerId = null;
       this.msg.setVisible(false);
       this.fillInitial();
       this.syncHud();
-      this.time.delayedCall(50, () => this.resolveBoard(false));
-    }
-
-    onPointer(p, isDown) {
-      if (this.busy || this.ended) return;
-      const cell = this.cellAt(p.x, p.y);
-      if (!cell) {
-        if (!isDown) this.clearSelect();
-        return;
-      }
-      if (isDown) {
-        if (this.selected) {
-          if (this.selected.r === cell.r && this.selected.c === cell.c) {
-            this.clearSelect();
-            return;
-          }
-          if (this.isAdjacent(this.selected, cell)) {
-            const a = this.selected;
-            this.clearSelect();
-            this.trySwap(a, cell);
-            return;
-          }
-        }
-        this.select(cell);
-      } else if (this.selected) {
-        if (this.isAdjacent(this.selected, cell)) {
-          const a = this.selected;
-          this.clearSelect();
-          this.trySwap(a, cell);
-        }
-      }
+      this.time.delayedCall(50, () => this.resolveBoard());
     }
 
     isAdjacent(a, b) {
@@ -183,7 +228,7 @@
 
     clearSelect() {
       if (this.selected) {
-        const g = this.gems[this.selected.r][this.selected.c];
+        const g = this.gems[this.selected.r] && this.gems[this.selected.r][this.selected.c];
         if (g) {
           g.setStrokeStyle(2, 0xffffff44);
           g.setScale(1);
@@ -193,18 +238,22 @@
     }
 
     trySwap(a, b) {
+      if (this.busy || this.ended) return;
+      if (!this.isAdjacent(a, b)) return;
       this.busy = true;
+      this.armBusySafety(5000);
       this.swapCells(a, b);
       this.animateSwap(a, b, () => {
-        const matches = this.findMatches();
-        if (!matches.length) {
+        if (!this.findMatches().length) {
           this.swapCells(a, b);
-          this.animateSwap(a, b, () => { this.busy = false; });
+          this.animateSwap(a, b, () => {
+            this.unlockBusy();
+          });
           return;
         }
         this.movesLeft -= 1;
         this.syncHud();
-        this.resolveBoard(true);
+        this.resolveBoard();
       });
     }
 
@@ -212,26 +261,48 @@
       const t = this.grid[a.r][a.c];
       this.grid[a.r][a.c] = this.grid[b.r][b.c];
       this.grid[b.r][b.c] = t;
-      const g1 = this.gems[a.r][a.c];
-      const g2 = this.gems[b.r][b.c];
+      const g1 = this.gems[a.r][a.c], g2 = this.gems[b.r][b.c];
       this.gems[a.r][a.c] = g2;
       this.gems[b.r][b.c] = g1;
-      if (g1) { g1.setData("r", b.r); g1.setData("c", b.c); }
-      if (g2) { g2.setData("r", a.r); g2.setData("c", a.c); }
+      if (g1) {
+        g1.setData("r", b.r);
+        g1.setData("c", b.c);
+      }
+      if (g2) {
+        g2.setData("r", a.r);
+        g2.setData("c", a.c);
+      }
     }
 
     animateSwap(a, b, done) {
-      const g1 = this.gems[b.r][b.c];
-      const g2 = this.gems[a.r][a.c];
-      const p1 = this.pos(b.r, b.c);
-      const p2 = this.pos(a.r, a.c);
+      const g1 = this.gems[b.r][b.c], g2 = this.gems[a.r][a.c];
+      const p1 = this.pos(b.r, b.c), p2 = this.pos(a.r, a.c);
       let left = 2;
-      const finish = () => { if (--left === 0) done(); };
-      [ [g1, p1], [g2, p2] ].forEach(([g, p]) => {
-        if (!g) { finish(); return; }
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        if (--left === 0) {
+          finished = true;
+          done();
+        }
+      };
+      // Safety: if tweens never complete, still unlock the swap chain
+      this.time.delayedCall(800, () => {
+        if (!finished) {
+          finished = true;
+          left = 0;
+          done();
+        }
+      });
+      [[g1, p1], [g2, p2]].forEach(([g, p]) => {
+        if (!g) {
+          finish();
+          return;
+        }
         this.tweens.add({
-          targets: [g, g.shine],
-          x: p.x, y: (g.shine ? undefined : p.y),
+          targets: g,
+          x: p.x,
+          y: p.y,
           duration: 140,
           onUpdate: () => {
             if (g.shine) {
@@ -240,14 +311,15 @@
             }
           },
           onComplete: () => {
-            g.x = p.x; g.y = p.y;
-            if (g.shine) { g.shine.x = g.x - this.cell * 0.12; g.shine.y = g.y - this.cell * 0.12; }
+            g.x = p.x;
+            g.y = p.y;
+            if (g.shine) {
+              g.shine.x = g.x - this.cell * 0.12;
+              g.shine.y = g.y - this.cell * 0.12;
+            }
             finish();
           },
         });
-        if (g.shine) {
-          this.tweens.add({ targets: g.shine, x: p.x - this.cell * 0.12, y: p.y - this.cell * 0.12, duration: 140 });
-        }
       });
     }
 
@@ -274,27 +346,41 @@
         }
       }
       const list = [];
-      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (marked[r][c]) list.push({ r, c });
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (marked[r][c]) list.push({ r, c });
+        }
+      }
       return list;
     }
 
-    resolveBoard(fromPlayer) {
+    resolveBoard() {
       const matches = this.findMatches();
       if (!matches.length) {
-        this.busy = false;
+        this.unlockBusy();
         this.checkEnd();
         return;
       }
       this.busy = true;
+      this.armBusySafety(6000);
       this.score += matches.length * 10 + Math.max(0, matches.length - 3) * 5;
       this.syncHud();
-
       let pending = matches.length;
+      let advanced = false;
+      const advance = () => {
+        if (advanced) return;
+        advanced = true;
+        this.collapseAndRefill();
+      };
+      this.time.delayedCall(1200, advance);
       matches.forEach(({ r, c }) => {
         const g = this.gems[r][c];
         this.grid[r][c] = -1;
         this.gems[r][c] = null;
-        if (!g) { if (--pending === 0) this.collapseAndRefill(); return; }
+        if (!g) {
+          if (--pending === 0) advance();
+          return;
+        }
         this.tweens.add({
           targets: [g, g.shine].filter(Boolean),
           scale: 0,
@@ -302,7 +388,7 @@
           duration: 160,
           onComplete: () => {
             this.destroyGem(g);
-            if (--pending === 0) this.collapseAndRefill();
+            if (--pending === 0) advance();
           },
         });
       });
@@ -321,7 +407,8 @@
             this.grid[r][c] = item.color;
             this.gems[r][c] = item.gem;
             if (item.gem) {
-              item.gem.setData("r", r); item.gem.setData("c", c);
+              item.gem.setData("r", r);
+              item.gem.setData("c", c);
             }
           } else {
             this.grid[r][c] = -1;
@@ -342,6 +429,14 @@
       }
 
       let moving = 0;
+      let continued = false;
+      const cont = () => {
+        if (continued) return;
+        continued = true;
+        this.time.delayedCall(40, () => this.resolveBoard());
+      };
+      this.armBusySafety(6000);
+
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const g = this.gems[r][c];
@@ -351,7 +446,8 @@
           moving++;
           this.tweens.add({
             targets: g,
-            x: p.x, y: p.y,
+            x: p.x,
+            y: p.y,
             duration: 180 + (ROWS - r) * 12,
             ease: "Bounce.Out",
             onUpdate: () => {
@@ -361,14 +457,18 @@
               }
             },
             onComplete: () => {
-              if (g.shine) { g.shine.x = g.x - this.cell * 0.12; g.shine.y = g.y - this.cell * 0.12; }
+              if (g.shine) {
+                g.shine.x = g.x - this.cell * 0.12;
+                g.shine.y = g.y - this.cell * 0.12;
+              }
               moving--;
-              if (moving === 0) this.time.delayedCall(40, () => this.resolveBoard(false));
+              if (moving === 0) cont();
             },
           });
         }
       }
-      if (moving === 0) this.time.delayedCall(40, () => this.resolveBoard(false));
+      if (moving === 0) cont();
+      else this.time.delayedCall(2500, cont);
     }
 
     checkEnd() {
@@ -385,7 +485,11 @@
 
   const boot = () => {
     const el = document.getElementById("game-container");
-    const w = Math.min(480, el.clientWidth || 360);
+    // Fixed square size; Scale.NONE avoids FIT letterbox pointer bugs
+    const w = Math.max(280, Math.min(480, el.clientWidth || 360));
+    el.style.width = w + "px";
+    el.style.height = w + "px";
+    el.style.margin = "0 auto";
     new Phaser.Game({
       type: Phaser.AUTO,
       parent: "game-container",
@@ -393,9 +497,16 @@
       height: w,
       backgroundColor: "#111527",
       scene: [Match3Scene],
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      scale: {
+        mode: Phaser.Scale.NONE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      input: {
+        activePointers: 3,
+      },
     });
   };
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
