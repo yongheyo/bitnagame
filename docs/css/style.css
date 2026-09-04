@@ -58,6 +58,7 @@ a { color: inherit; text-decoration: none; }
 .card.c2048 .card-icon { background: linear-gradient(135deg, #f2b179, #edc22e); color: #1a1208; }
 .card.cslide .card-icon { background: linear-gradient(135deg, #6c8cff, #4fd1ff); color: #081018; }
 .card.cmatch .card-icon { background: linear-gradient(135deg, #ff7eb6, #b967ff); color: #1a0814; }
+.card.cline .card-icon { background: linear-gradient(135deg, #7ef0c3, #6c8cff); color: #081018; }
 .card h3 { font-size: 1.25rem; margin-bottom: 8px; }
 .card p { color: var(--muted); line-height: 1.55; flex: 1; font-size: 0.95rem; }
 .btn {
