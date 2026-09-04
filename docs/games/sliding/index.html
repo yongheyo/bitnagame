@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>슬라이딩 퍼즐 — PlayHub</title>
+  <link rel="stylesheet" href="../../css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body class="game-page">
+  <header class="topbar">
+    <a class="back" href="../../">← 로비</a>
+    <div class="title">슬라이딩 퍼즐</div>
+    <div class="hud">
+      <div class="pill">이동 <span id="moves">0</span></div>
+    </div>
+  </header>
+  <main class="game-stage">
+    <div id="game-container"></div>
+    <div class="controls">
+      <button class="primary" id="btn-shuffle" type="button">섞기</button>
+    </div>
+    <p class="hint">빈칸 옆 타일을 탭/클릭하면 이동합니다. 1~15를 순서대로 맞추세요!</p>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
