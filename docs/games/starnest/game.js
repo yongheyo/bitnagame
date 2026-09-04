@@ -165,7 +165,7 @@
     if (kind === "gather") state.gatherLv += 1;
     else if (kind === "hull") {
       state.hullLv += 1;
-      if (sceneRef) sceneRef.refreshShip();
+      if (sceneRef) sceneRef.refreshShip(true);
     } else state.droneLv += 1;
     saveState(state);
     syncHud();
@@ -231,40 +231,88 @@
       });
     }
 
-    refreshShip() {
+    hullStage(lv) {
+      if (lv >= 6) return 3;
+      if (lv >= 3) return 2;
+      return 1;
+    }
+
+    buildShipParts(stage) {
+      const parts = [];
+      if (stage === 1) {
+        const color = 0x5b8cff;
+        const hull = this.add.ellipse(0, 0, 34, 50, color).setStrokeStyle(2, 0xffffff, 0.4);
+        const cabin = this.add.circle(0, -10, 7, 0x0b1020, 0.85);
+        const flame = this.add.triangle(0, 28, -5, 0, 5, 0, 0, 12, 0xff8a3d);
+        this.tweens.add({ targets: flame, scaleY: { from: 0.85, to: 1.2 }, alpha: { from: 0.7, to: 1 }, duration: 220, yoyo: true, repeat: -1 });
+        parts.push(hull, cabin, flame);
+      } else if (stage === 2) {
+        const color = 0x3dd6c6;
+        const hull = this.add.ellipse(0, 0, 46, 62, color).setStrokeStyle(2, 0xffffff, 0.45);
+        const cabin = this.add.circle(0, -12, 9, 0x0b1020, 0.85);
+        const wingL = this.add.triangle(-28, 6, 0, -12, 16, 14, 0, 12, color).setAlpha(0.95);
+        const wingR = this.add.triangle(28, 6, 0, -12, 0, 12, 16, 14, color).setAlpha(0.95);
+        const flame = this.add.triangle(0, 34, -7, 0, 7, 0, 0, 14, 0xff8a3d);
+        this.tweens.add({ targets: flame, scaleY: { from: 0.85, to: 1.25 }, alpha: { from: 0.7, to: 1 }, duration: 220, yoyo: true, repeat: -1 });
+        parts.push(wingL, wingR, hull, cabin, flame);
+      } else {
+        const color = 0xfff4a3;
+        const hull = this.add.ellipse(0, 0, 58, 76, color).setStrokeStyle(2, 0xffffff, 0.5);
+        const cabin = this.add.circle(0, -16, 11, 0x0b1020, 0.9);
+        const wingL = this.add.triangle(-36, 8, 0, -16, 20, 18, 0, 14, 0x7c5cff).setAlpha(0.95);
+        const wingR = this.add.triangle(36, 8, 0, -16, 0, 14, 20, 18, 0x7c5cff).setAlpha(0.95);
+        const glow = this.add.circle(0, 40, 14, 0xff8a3d, 0.35);
+        const flame = this.add.triangle(0, 42, -10, 0, 10, 0, 0, 18, 0xff6bb5);
+        this.tweens.add({
+          targets: [glow, flame],
+          scaleY: { from: 0.9, to: 1.3 },
+          alpha: { from: 0.55, to: 1 },
+          duration: 240,
+          yoyo: true,
+          repeat: -1,
+        });
+        parts.push(wingL, wingR, hull, cabin, glow, flame);
+      }
+      return parts;
+    }
+
+    refreshShip(animate) {
       if (!this.shipRoot) return;
       if (this._floatTween) {
         this._floatTween.stop();
         this._floatTween = null;
       }
-      this.shipRoot.removeAll(true);
-      this.shipRoot.y = H / 2 - 20;
-      const stage = Math.min(6, state.hullLv);
-      const bodyW = 36 + stage * 6;
-      const bodyH = 54 + stage * 8;
-      const color = [0x5b8cff, 0x7c5cff, 0x3dd6c6, 0xffb84d, 0xff6bb5, 0xe8f0ff, 0xfff4a3][stage];
-      const hull = this.add.ellipse(0, 0, bodyW, bodyH, color).setStrokeStyle(2, 0xffffff, 0.45);
-      const cabin = this.add.circle(0, -bodyH * 0.18, 8 + stage, 0x0b1020, 0.85);
-      const wingL = this.add.triangle(-bodyW * 0.55, 8, 0, -10 - stage, 18 + stage, 16, 0, 14, color).setAlpha(0.9);
-      const wingR = this.add.triangle(bodyW * 0.55, 8, 0, -10 - stage, 0, 14, 18 + stage, 16, color).setAlpha(0.9);
-      const flame = this.add.triangle(0, bodyH * 0.52, -6 - stage * 0.5, 0, 6 + stage * 0.5, 0, 0, 14 + stage, 0xff8a3d);
-      this.tweens.add({
-        targets: flame,
-        scaleY: { from: 0.85, to: 1.25 },
-        alpha: { from: 0.7, to: 1 },
-        duration: 220,
-        yoyo: true,
-        repeat: -1,
-      });
-      this.shipRoot.add([wingL, wingR, hull, cabin, flame]);
-      this._floatTween = this.tweens.add({
-        targets: this.shipRoot,
-        y: this.shipRoot.y - 6,
-        duration: 1400,
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.easeInOut",
-      });
+      const stage = this.hullStage(state.hullLv);
+      const rebuild = () => {
+        this.shipRoot.removeAll(true);
+        this.shipRoot.y = H / 2 - 20;
+        this.shipRoot.setAlpha(1);
+        const parts = this.buildShipParts(stage);
+        this.shipRoot.add(parts);
+        this._floatTween = this.tweens.add({
+          targets: this.shipRoot,
+          y: this.shipRoot.y - 6,
+          duration: 1400,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+        this._shipStage = stage;
+      };
+      if (animate && this._shipStage && this._shipStage !== stage) {
+        this.tweens.add({
+          targets: this.shipRoot,
+          alpha: 0,
+          duration: 150,
+          onComplete: () => {
+            rebuild();
+            this.shipRoot.setAlpha(0);
+            this.tweens.add({ targets: this.shipRoot, alpha: 1, duration: 150 });
+          },
+        });
+      } else {
+        rebuild();
+      }
     }
 
     spawnTapFx() {
