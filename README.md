@@ -4,15 +4,15 @@ Phaser 3 기반 미니 게임 포털 — 계정 없이 바로 플레이.
 
 ## 라이브 URL (공개 HTTPS, 로그인 불필요)
 
-**https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/**
+**https://yongheyo.github.io/bitnagame/**
 
-- 로비: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/index.html
-- 2048: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/games/2048/
-- 슬라이딩: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/games/sliding/
-- 매치-3: https://cdn.jsdelivr.net/gh/yongheyo/playhub-portal@main/docs/games/match3/
+- 로비: https://yongheyo.github.io/bitnagame/
+- 2048: https://yongheyo.github.io/bitnagame/games/2048/
+- 슬라이딩: https://yongheyo.github.io/bitnagame/games/sliding/
+- 매치-3: https://yongheyo.github.io/bitnagame/games/match3/
 
-GitHub Pages 예정 URL: `https://yongheyo.github.io/playhub-portal/`  
-(현재 MCP 토큰에 Pages/workflow 권한이 없어 API로 활성화를 못 했습니다. 저장소 **Settings → Pages → Deploy from a branch → `main` / `/docs`** 한 번 켜면 됩니다. `docs/.nojekyll` 이미 포함.)
+저장소: https://github.com/yongheyo/bitnagame  
+(GitHub Pages: branch `main` / folder `/docs`)
 
 ## 게임
 
