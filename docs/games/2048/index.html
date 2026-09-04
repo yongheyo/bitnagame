@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>2048 — PlayHub</title>
+  <link rel="stylesheet" href="../../css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body class="game-page">
+  <header class="topbar">
+    <a class="back" href="../../">← 로비</a>
+    <div class="title">2048</div>
+    <div class="hud">
+      <div class="pill">점수 <span id="score">0</span></div>
+      <div class="pill">최고 <span id="best">0</span></div>
+    </div>
+  </header>
+  <main class="game-stage">
+    <div id="game-container"></div>
+    <div class="controls">
+      <button class="primary" id="btn-new" type="button">새 게임</button>
+    </div>
+    <p class="hint">키보드 화살표 또는 화면을 스와이프하세요. 같은 숫자를 합쳐 2048을 만드세요!</p>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
