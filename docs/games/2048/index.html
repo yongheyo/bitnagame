@@ -8,11 +8,16 @@
   <style>
     .game-board-wrap {
       position: relative;
-      width: min(100%, 480px);
+      width: min(94vw, 94vh, 900px);
+      max-width: min(100%, 900px);
+      aspect-ratio: 1 / 1;
       margin: 0 auto;
     }
     .game-board-wrap #game-container {
+      position: absolute;
+      inset: 0;
       width: 100%;
+      height: 100%;
     }
     #game-overlay {
       position: absolute;
@@ -99,6 +104,6 @@
     <p class="hint">화살표·WASD 또는 스와이프로 같은 숫자를 합쳐 2048을 만드세요!</p>
   </main>
   <script src="../../js/audio.js?v=BITNA3SFX1"></script>
-  <script src="game.js?v=BITNA2048SFX1"></script>
+  <script src="game.js?v=SCALE1"></script>
 </body>
 </html>
