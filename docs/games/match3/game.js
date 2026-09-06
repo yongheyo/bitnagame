@@ -1,1 +1,1 @@
-PLACEHOLDER
+@/tmp/P0_REAL_FOR_MCP.js
