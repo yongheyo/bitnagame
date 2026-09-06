@@ -338,8 +338,8 @@
         e.alive = false;
         const wasBoss = e.boss;
         e.body.destroy();
-        e.hpBar.destroy();
         e.hpBarBg.destroy();
+        e.hpBar.destroy();
         if (wasBoss) this.onClear();
       }
     }
