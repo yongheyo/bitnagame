@@ -1,1 +1,1 @@
-@/workspace/bitnagame-work/docs/games/match3/game.js
+file:///tmp/restored_game.js
