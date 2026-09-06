@@ -351,28 +351,27 @@
     const el = document.getElementById("game-container");
     if (!el) return;
 
-    // Fixed square; Scale.NONE avoids FIT letterbox / pointer interference with HTML controls.
-    const avail = el.clientWidth || Math.min(window.innerWidth - 24, 480);
-    const w = Math.max(280, Math.min(480, avail));
-    el.style.width = w + "px";
-    el.style.height = w + "px";
-    el.style.margin = "0 auto";
+    // Fixed logical square; parent CSS sizes the box; FIT scales into it.
+    const LOGICAL = 720;
 
     gameRef = new Phaser.Game({
       type: Phaser.AUTO,
       parent: "game-container",
-      width: w,
-      height: w,
+      width: LOGICAL,
+      height: LOGICAL,
       backgroundColor: "#111527",
       scene: [SlidingScene],
       scale: {
-        mode: Phaser.Scale.NONE,
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: LOGICAL,
+        height: LOGICAL,
       },
       input: {
         activePointers: 3,
       },
     });
+    if (gameRef.scale) gameRef.scale.refresh();
 
     const bindReset = (id) => {
       const btn = document.getElementById(id);
