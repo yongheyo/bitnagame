@@ -671,11 +671,9 @@
     const el = document.getElementById("game-container");
     if (!el) return;
 
-    const parentW = el.parentElement ? el.parentElement.clientWidth : el.clientWidth;
-    const boxW = Math.max(280, Math.min(DESIGN_W, parentW || window.innerWidth - 24, window.innerWidth - 24));
-    const boxH = Math.round((boxW / DESIGN_W) * DESIGN_H);
-    el.style.width = boxW + "px";
-    el.style.height = boxH + "px";
+    // Parent CSS sizes the display box; FIT scales the fixed 720×302 logical size into it.
+    el.style.width = "100%";
+    el.style.height = "100%";
     el.style.margin = "0 auto";
     el.style.maxWidth = "100%";
     el.style.overflow = "hidden";
