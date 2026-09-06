@@ -222,15 +222,18 @@
         gameRef = null;
       }
       host.innerHTML = "";
+      host.style.width = "100%";
+      host.style.height = "100%";
       gameRef = new Phaser.Game({
         type: Phaser.AUTO,
         parent: host,
         width: W,
         height: H,
         backgroundColor: "#0b1020",
-        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: W, height: H },
         scene: [PairBloomScene],
       });
+      if (gameRef.scale) gameRef.scale.refresh();
     };
     requestAnimationFrame(() => requestAnimationFrame(start));
   }
