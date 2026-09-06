@@ -1,1 +1,1 @@
-file:///tmp/restored_game.js
+PLACEHOLDER
