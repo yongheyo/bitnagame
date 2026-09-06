@@ -302,22 +302,10 @@
         .setStrokeStyle(3, 0xffffff, 0)
         .setDepth(g.depth - 0.1);
       g.halo = halo;
+      g.setData("restScale", g.scaleX);
 
       g.on("pointerdown", (pointer) => this.onGemPointerDown(g, pointer));
       g.on("pointerup", (pointer) => this.onGemPointerUp(g, pointer));
-      g.on("pointerover", () => {
-        if (!this.busy && !this.ended && this._dragFrom) {
-          g.setScale(1.05);
-          this.lockGemHit(g);
-        }
-      });
-      g.on("pointerout", () => {
-        if (g.getData("selected")) return;
-        if (g.active) {
-          g.setScale(1);
-          this.lockGemHit(g);
-        }
-      });
 
       return g;
     }
@@ -326,7 +314,9 @@
       if (!g || !g.halo) return;
       g.halo.x = g.x;
       g.halo.y = g.y;
-      g.halo.setScale(g.scaleX);
+      const rest = g.getData("restScale");
+      const base = rest == null || rest <= 0 ? 1 : rest;
+      g.halo.setScale((g.scaleX || 1) / base);
       g.halo.setDepth(g.depth - 0.1);
       g.halo.setAlpha(g.alpha);
     }
@@ -339,6 +329,18 @@
       const hh = (this.cell * 0.92) / s;
       g.input.hitArea = new Phaser.Geom.Rectangle(-hw / 2, -hh / 2, hw, hh);
       g.input.hitAreaCallback = Phaser.Geom.Rectangle.Contains;
+    }
+
+    /**
+     * Visual scale relative to rest pose (setDisplaySize). factor 1 = rest.
+     * Always lockGemHit after changing scale so hit boxes cannot accumulate.
+     */
+    setGemScale(g, factor) {
+      if (!g || !g.active) return;
+      const rest = g.getData("restScale");
+      const base = rest == null || rest <= 0 ? (this.cell * 0.9) / TEX : rest;
+      g.setScale(base * factor);
+      this.lockGemHit(g);
     }
 
 
@@ -499,7 +501,7 @@
       const g = this.gems[cell.r][cell.c];
       if (g) {
         g.setData("selected", true);
-        g.setScale(1.05);
+        this.setGemScale(g, 1.05);
         g.setDepth(this.gemDepthBase + 80);
         this.lockGemHit(g);
         if (g.halo) {
@@ -516,7 +518,7 @@
         const g = row && row[this.selected.c];
         if (g) {
           g.setData("selected", false);
-          g.setScale(1);
+          this.setGemScale(g, 1);
           g.setDepth(this.gemDepth(g.getData("r"), g.getData("c")));
           this.lockGemHit(g);
           if (g.halo) {
@@ -584,6 +586,12 @@
 
       let left = 2;
       let finished = false;
+      const tweens = [];
+      const resetGemScale = (g) => {
+        if (!g || !g.active) return;
+        this.setGemScale(g, 1);
+        this.syncHalo(g);
+      };
       const finish = () => {
         if (finished) return;
         if (--left === 0) {
@@ -595,6 +603,11 @@
         if (!finished) {
           finished = true;
           left = 0;
+          tweens.forEach((tw) => {
+            if (tw) tw.stop();
+          });
+          resetGemScale(gOver);
+          resetGemScale(gUnder);
           done();
         }
       });
@@ -615,11 +628,10 @@
         const ox = (-dy / len) * this.cell * (over ? 0.38 : -0.22);
         const oy = (dx / len) * this.cell * (over ? 0.38 : -0.22) - (over ? this.cell * 0.18 : this.cell * 0.06);
 
-        const startDepth = g.depth;
         g.setDepth(over ? this.gemDepthBase + 100 : this.gemDepthBase + 2);
 
         const state = { t: 0 };
-        this.tweens.add({
+        const tw = this.tweens.add({
           targets: state,
           t: 1,
           duration: SWAP_MS,
@@ -632,22 +644,27 @@
             const by = omt * omt * sy + 2 * omt * t * (my + oy) + t * t * dest.y;
             g.x = bx;
             g.y = by;
+            // Over max 1.08, under min 0.95; always relative to rest pose.
             const bump = over
-              ? 1 + 0.28 * Math.sin(Math.PI * t)
-              : 1 - 0.14 * Math.sin(Math.PI * t);
-            g.setScale(bump);
+              ? 1 + 0.08 * Math.sin(Math.PI * t)
+              : 1 - 0.05 * Math.sin(Math.PI * t);
+            this.setGemScale(g, bump);
             this.syncHalo(g);
           },
           onComplete: () => {
             g.x = dest.x;
             g.y = dest.y;
-            g.setScale(1);
+            this.setGemScale(g, 1);
             g.setDepth(this.gemDepth(g.getData("r"), g.getData("c")));
             this.lockGemHit(g);
             this.syncHalo(g);
             finish();
           },
+          onStop: () => {
+            resetGemScale(g);
+          },
         });
+        tweens.push(tw);
       };
 
       runArc(gOver, pOver, true);
@@ -748,8 +765,8 @@
     showComboPop(n, matches) {
       if (n < 2) return;
       const W = this.scale.width;
-      const labels = ["", "", "콤보!", "대콤보!", "슈퍼!", "울트라!"];
-      const label = (labels[Math.min(n, labels.length - 1)] || "콤보!") + " x" + n;
+      const labels = ["", "", "코보!", "대코보!", "슈퍼!", "울트라!"];
+      const label = (labels[Math.min(n, labels.length - 1)] || "코보!") + " x" + n;
       const pts = matches.length * 10;
       const txt = this.add
         .text(W / 2, this.originY + this.cell * 1.2, label, {
@@ -1053,28 +1070,27 @@
     const el = document.getElementById("game-container");
     if (!el) return;
 
-    // Fixed square; Scale.NONE avoids FIT letterbox / pointer interference with HTML controls.
-    const avail = el.clientWidth || Math.min(window.innerWidth - 24, 480);
-    const w = Math.max(280, Math.min(480, avail));
-    el.style.width = w + "px";
-    el.style.height = w + "px";
-    el.style.margin = "0 auto";
+    // Fixed logical square; parent CSS sizes the box; FIT scales into it.
+    const LOGICAL = 720;
 
     gameRef = new Phaser.Game({
       type: Phaser.AUTO,
       parent: "game-container",
-      width: w,
-      height: w,
+      width: LOGICAL,
+      height: LOGICAL,
       backgroundColor: "#111527",
       scene: [Match3Scene],
       scale: {
-        mode: Phaser.Scale.NONE,
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: LOGICAL,
+        height: LOGICAL,
       },
       input: {
         activePointers: 3,
       },
     });
+    if (gameRef.scale) gameRef.scale.refresh();
 
     const bindReset = (id) => {
       const btn = document.getElementById(id);
