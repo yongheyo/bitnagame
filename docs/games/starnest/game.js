@@ -459,10 +459,9 @@
   function bootPhaser() {
     const host = document.getElementById("game-container");
     if (!host) return;
-    const boxW = Math.max(260, Math.min(W, window.innerWidth - 24));
-    const boxH = Math.round((boxW / W) * H);
-    host.style.width = boxW + "px";
-    host.style.height = boxH + "px";
+    // Parent CSS sizes the display box; FIT scales the fixed 360×640 logical size into it.
+    host.style.width = "100%";
+    host.style.height = "100%";
     host.style.maxWidth = "100%";
     host.style.margin = "0 auto";
     host.style.overflow = "hidden";
