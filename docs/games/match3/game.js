@@ -1,1 +1,1 @@
-LOAD_FROM_FILE_/tmp/content_only.js
+PLACEHOLDER
