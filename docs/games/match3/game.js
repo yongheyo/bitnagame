@@ -1,1 +1,1 @@
-cursor-file:///tmp/REAL_game.js
+LOAD_FROM_FILE_/tmp/content_only.js
