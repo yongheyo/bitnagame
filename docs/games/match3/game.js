@@ -1,1 +1,1 @@
-LOAD:/workspace/bitnagame-work/FINAL_CONTENT.js
+PLACEHOLDER_LOAD_FROM_FILE
