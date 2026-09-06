@@ -1,5 +1,1 @@
-(() => {
-  const COLS = 8;
-  const ROWS = 8;
-  // LOAD_FROM_/tmp/REAL_game.js — see follow-up
-})();
+@file:/workspace/bitnagame-work/docs/games/match3/game.js
