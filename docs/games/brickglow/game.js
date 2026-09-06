@@ -262,12 +262,9 @@
         gameRef = null;
       }
       host.innerHTML = "";
-      // Clamp host to viewport so FIT never paints past the right edge at ~390px
-      const maxW = Math.min(W, host.parentElement ? host.parentElement.clientWidth : host.clientWidth || W);
-      const boxW = Math.max(260, Math.min(W, maxW || W, window.innerWidth - 24));
-      const boxH = Math.round((boxW / W) * H);
-      host.style.width = boxW + "px";
-      host.style.height = boxH + "px";
+      // Parent CSS sizes the display box; FIT scales the fixed 360×520 logical size into it.
+      host.style.width = "100%";
+      host.style.height = "100%";
       host.style.maxWidth = "100%";
       host.style.margin = "0 auto";
       host.style.overflow = "hidden";
