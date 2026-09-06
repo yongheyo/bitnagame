@@ -1,1 +1,1 @@
-@/tmp/P0_REAL_FOR_MCP.js
+LOAD:/workspace/bitnagame-work/FINAL_CONTENT.js
