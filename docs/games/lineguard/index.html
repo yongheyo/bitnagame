@@ -10,14 +10,18 @@
     .game-stage { width: 100%; max-width: 100%; overflow-x: hidden; box-sizing: border-box; }
     .game-board-wrap {
       position: relative;
-      width: min(100%, 720px);
-      max-width: 100%;
+      width: min(94vw, 960px);
+      max-width: min(100%, 960px);
+      aspect-ratio: 720 / 302;
       margin: 0 auto;
       overflow: hidden;
       box-sizing: border-box;
     }
     .game-board-wrap #game-container {
+      position: absolute;
+      inset: 0;
       width: 100%;
+      height: 100%;
       max-width: 100%;
       overflow: hidden;
     }
@@ -76,7 +80,7 @@
       flex-wrap: wrap;
       gap: 8px;
       justify-content: center;
-      width: min(100%, 720px);
+      width: min(100%, 960px);
       max-width: 100%;
       align-items: center;
       box-sizing: border-box;
@@ -86,7 +90,7 @@
       display: flex;
       gap: 8px;
       justify-content: center;
-      width: min(100%, 720px);
+      width: min(100%, 960px);
       max-width: 100%;
       flex-wrap: wrap;
       box-sizing: border-box;
@@ -216,6 +220,6 @@
     <p class="hint">오른쪽으로 다가오는 적을 막으세요. 손패를 탭해 배치하거나 자동배치를 켜세요. 엘릭서는 시간에 따라 회복됩니다.</p>
   </main>
   <script src="../../js/audio.js?v=BITNA3"></script>
-  <script src="game.js?v=LINEGUARD3"></script>
+  <script src="game.js?v=SCALE1"></script>
 </body>
 </html>
